@@ -12,7 +12,7 @@ import json
 from typing import Any
 
 from config import get_api_key_from_env, load_llm_config
-from llm_providers import LLMMessage, LLMProvider, create_llm_provider
+from llm_providers import LLMMessage, LLMProvider, LLMResponse, create_llm_provider
 from simple_mcp_client import SimpleMCPClient
 
 
@@ -24,10 +24,10 @@ class MCPAgent:
     assistant that can interact with external systems.
     """
 
-    def __init__(self, llm_provider, mcp_client: SimpleMCPClient):
-        self.llm_provider = llm_provider
-        self.mcp_client = mcp_client
-        self.conversation_history = []
+    def __init__(self, llm_provider: LLMProvider, mcp_client: SimpleMCPClient) -> None:
+        self.llm_provider: LLMProvider = llm_provider
+        self.mcp_client: SimpleMCPClient = mcp_client
+        self.conversation_history: list[LLMMessage] = []
 
     async def process_task(self, task: str) -> str:
         """Process a task using LLM reasoning and MCP tools"""
@@ -82,7 +82,7 @@ Be helpful and use the appropriate tools to complete user requests."""
             formatted_tools.append(self.llm_provider.format_tool_for_provider(tool))
         return formatted_tools
 
-    async def _process_response(self, response, messages: list[LLMMessage]) -> str:
+    async def _process_response(self, response: LLMResponse, messages: list[LLMMessage]) -> str:
         """Process LLM response and execute tools if needed"""
         result_parts = response.text_content.copy()
 
@@ -116,12 +116,12 @@ Be helpful and use the appropriate tools to complete user requests."""
 
         return "\n".join(result_parts) if result_parts else "No response generated."
 
-    def clear_history(self):
+    def clear_history(self) -> None:
         """Clear conversation history"""
         self.conversation_history = []
 
 
-async def example_file_management_agent():
+async def example_file_management_agent() -> None:
     """Example: File management agent"""
     print("=== File Management Agent ===")
 
@@ -161,7 +161,7 @@ async def example_file_management_agent():
             print(f"✅ Result: {result}")
 
 
-async def example_multi_server_agent():
+async def example_multi_server_agent() -> None:
     """Example: Agent that works with multiple servers"""
     print("\n=== Multi-Server Agent ===")
 
@@ -200,7 +200,7 @@ async def example_multi_server_agent():
         await mcp_client.cleanup()
 
 
-async def example_conversational_agent():
+async def example_conversational_agent() -> None:
     """Example: Conversational agent with memory"""
     print("\n=== Conversational Agent ===")
 
@@ -271,7 +271,7 @@ class TaskPlanningAgent(MCPAgent):
         return result
 
 
-async def example_task_planning_agent():
+async def example_task_planning_agent() -> None:
     """Example: Task planning agent"""
     print("\n=== Task Planning Agent ===")
 
@@ -304,7 +304,7 @@ async def example_task_planning_agent():
         print(f"✅ Final Result: {result}")
 
 
-async def main():
+async def main() -> None:
     """Run all examples"""
     print("🤖 AI Agent Integration Examples")
     print("=" * 50)

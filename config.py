@@ -8,8 +8,8 @@ Supports separate configuration files for better organization.
 
 import json
 import os
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple
 
 from llm_providers import LLMProvider
 
@@ -21,12 +21,9 @@ class LLMConfig:
     provider: str = "anthropic"
     model: str | None = None
     max_tokens: int = 1000
-    options: dict[str, Any] = None
+    options: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
-        if self.options is None:
-            self.options = {}
-
+    def __post_init__(self) -> None:
         # Set default models if not specified
         if self.model is None:
             if self.provider == "anthropic":
@@ -41,11 +38,10 @@ class LLMConfig:
 class MCPConfig:
     """MCP configuration structure."""
 
-    servers: dict[str, dict[str, Any]] = None
+    servers: dict[str, dict[str, Any]] = field(default_factory=dict)
 
-    def __post_init__(self):
-        if self.servers is None:
-            self.servers = {}
+    def __post_init__(self) -> None:
+        pass
 
 
 def load_llm_config(config_path: str = "llm_config.json") -> LLMConfig:

@@ -13,7 +13,7 @@ from mcp_client import MCPClient, QueryProcessor
 class TestMCPClient:
     """Test cases for MCPClient."""
 
-    def test_init(self, sample_mcp_config: MCPConfig):
+    def test_init(self, sample_mcp_config: MCPConfig) -> None:
         """Test MCPClient initialization."""
         client = MCPClient(sample_mcp_config, verbose=True)
         assert client.config == sample_mcp_config
@@ -22,12 +22,12 @@ class TestMCPClient:
         assert client.current_server is None
         assert client.verbose is True
 
-    def test_init_non_verbose(self, sample_mcp_config: MCPConfig):
+    def test_init_non_verbose(self, sample_mcp_config: MCPConfig) -> None:
         """Test MCPClient initialization without verbose mode."""
         client = MCPClient(sample_mcp_config, verbose=False)
         assert client.verbose is False
 
-    def test_list_servers(self, sample_mcp_config: MCPConfig):
+    def test_list_servers(self, sample_mcp_config: MCPConfig) -> None:
         """Test listing configured servers."""
         client = MCPClient(sample_mcp_config)
         servers = client.list_servers()
@@ -35,7 +35,7 @@ class TestMCPClient:
         assert "filesystem" in servers
         assert len(servers) == 2
 
-    def test_get_server_info(self, sample_mcp_config: MCPConfig):
+    def test_get_server_info(self, sample_mcp_config: MCPConfig) -> None:
         """Test getting server information."""
         client = MCPClient(sample_mcp_config)
         info = client.get_server_info("test-server")
@@ -43,13 +43,13 @@ class TestMCPClient:
         assert info["args"] == ["-m", "test_server"]
         assert info["description"] == "Test server"
 
-    def test_get_server_info_nonexistent(self, sample_mcp_config: MCPConfig):
+    def test_get_server_info_nonexistent(self, sample_mcp_config: MCPConfig) -> None:
         """Test getting info for nonexistent server."""
         client = MCPClient(sample_mcp_config)
         info = client.get_server_info("nonexistent")
         assert info == {}
 
-    async def test_connect_to_server_by_name(self, sample_mcp_config: MCPConfig):
+    async def test_connect_to_server_by_name(self, sample_mcp_config: MCPConfig) -> None:
         """Test connecting to server by name."""
         client = MCPClient(sample_mcp_config)
 
@@ -81,7 +81,7 @@ class TestMCPClient:
             assert len(client.available_tools) == 1
             assert client.available_tools[0]["name"] == "test_tool"
 
-    async def test_connect_to_server_direct_params(self, sample_mcp_config: MCPConfig):
+    async def test_connect_to_server_direct_params(self, sample_mcp_config: MCPConfig) -> None:
         """Test connecting with direct parameters."""
         client = MCPClient(sample_mcp_config)
 
@@ -109,21 +109,21 @@ class TestMCPClient:
 
             assert client.current_server == "direct"
 
-    async def test_connect_to_server_nonexistent(self, sample_mcp_config: MCPConfig):
+    async def test_connect_to_server_nonexistent(self, sample_mcp_config: MCPConfig) -> None:
         """Test connecting to nonexistent server."""
         client = MCPClient(sample_mcp_config)
 
         with pytest.raises(ValueError, match="Server 'nonexistent' not found"):
             await client.connect_to_server("nonexistent")
 
-    async def test_connect_to_server_no_params_empty_config(self):
+    async def test_connect_to_server_no_params_empty_config(self) -> None:
         """Test connecting with no parameters and empty config."""
         client = MCPClient(MCPConfig())
 
         with pytest.raises(ValueError, match="No servers configured"):
             await client.connect_to_server()
 
-    async def test_execute_tool_success(self, sample_mcp_config: MCPConfig):
+    async def test_execute_tool_success(self, sample_mcp_config: MCPConfig) -> None:
         """Test successful tool execution."""
         client = MCPClient(sample_mcp_config)
 
@@ -143,14 +143,14 @@ class TestMCPClient:
         assert result == "Tool result"
         mock_session.call_tool.assert_called_once_with("test_tool", {"param": "value"})
 
-    async def test_execute_tool_not_connected(self, sample_mcp_config: MCPConfig):
+    async def test_execute_tool_not_connected(self, sample_mcp_config: MCPConfig) -> None:
         """Test tool execution when not connected."""
         client = MCPClient(sample_mcp_config)
 
         with pytest.raises(RuntimeError, match="Not connected to MCP server"):
             await client.execute_tool("test_tool", {})
 
-    async def test_execute_tool_multiple_content(self, sample_mcp_config: MCPConfig):
+    async def test_execute_tool_multiple_content(self, sample_mcp_config: MCPConfig) -> None:
         """Test tool execution with multiple content parts."""
         client = MCPClient(sample_mcp_config)
 
@@ -170,7 +170,7 @@ class TestMCPClient:
         result = await client.execute_tool("test_tool", {})
         assert result == "Part 1\nPart 2"
 
-    async def test_cleanup(self, sample_mcp_config: MCPConfig):
+    async def test_cleanup(self, sample_mcp_config: MCPConfig) -> None:
         """Test cleanup functionality."""
         client = MCPClient(sample_mcp_config)
 
@@ -186,7 +186,7 @@ class TestMCPClient:
 class TestQueryProcessor:
     """Test cases for QueryProcessor."""
 
-    def test_init(self, sample_mcp_config: MCPConfig):
+    def test_init(self, sample_mcp_config: MCPConfig) -> None:
         """Test QueryProcessor initialization."""
         mock_client = MagicMock()
         mock_provider = MagicMock()
@@ -197,7 +197,7 @@ class TestQueryProcessor:
         assert processor.llm_provider == mock_provider
         assert processor.max_tokens == 500
 
-    async def test_process_query_not_connected(self, sample_mcp_config: MCPConfig):
+    async def test_process_query_not_connected(self, sample_mcp_config: MCPConfig) -> None:
         """Test processing query when not connected."""
         mock_client = MagicMock()
         mock_client.session = None
@@ -208,7 +208,7 @@ class TestQueryProcessor:
         with pytest.raises(RuntimeError, match="Not connected to MCP server"):
             await processor.process_query("test query")
 
-    async def test_process_query_no_tools(self, sample_mcp_config: MCPConfig):
+    async def test_process_query_no_tools(self, sample_mcp_config: MCPConfig) -> None:
         """Test processing query with no tools."""
         mock_client = MagicMock()
         mock_client.session = MagicMock()
@@ -227,7 +227,7 @@ class TestQueryProcessor:
         assert result == "Test response"
         mock_provider.create_message.assert_called_once()
 
-    async def test_process_query_with_tool_calls(self, sample_mcp_config: MCPConfig):
+    async def test_process_query_with_tool_calls(self, sample_mcp_config: MCPConfig) -> None:
         """Test processing query with tool calls."""
         mock_client = MagicMock()
         mock_client.session = MagicMock()
@@ -260,7 +260,7 @@ class TestQueryProcessor:
         assert "Final response" in result
         mock_client.execute_tool.assert_called_once_with("test_tool", {"param": "value"})
 
-    async def test_process_query_tool_execution_error(self, sample_mcp_config: MCPConfig):
+    async def test_process_query_tool_execution_error(self, sample_mcp_config: MCPConfig) -> None:
         """Test processing query with tool execution error."""
         mock_client = MagicMock()
         mock_client.session = MagicMock()
@@ -283,7 +283,7 @@ class TestQueryProcessor:
 
         assert "Error executing tool test_tool: Tool failed" in result
 
-    async def test_process_query_verbose_mode(self, sample_mcp_config: MCPConfig):
+    async def test_process_query_verbose_mode(self, sample_mcp_config: MCPConfig) -> None:
         """Test processing query with verbose logging."""
         mock_client = MagicMock()
         mock_client.session = MagicMock()
@@ -305,7 +305,7 @@ class TestQueryProcessor:
         # Verify debug logging was called
         assert mock_client.logger.debug.call_count > 0
 
-    def test_format_tool_use_message_anthropic(self, sample_mcp_config: MCPConfig):
+    def test_format_tool_use_message_anthropic(self, sample_mcp_config: MCPConfig) -> None:
         """Test formatting tool use message for Anthropic provider."""
         mock_client = MagicMock()
         mock_provider = MagicMock(spec=AnthropicProvider)
@@ -321,7 +321,7 @@ class TestQueryProcessor:
         assert result[1]["id"] == "call_1"
         assert result[1]["name"] == "test_tool"
 
-    def test_format_tool_use_message_openai(self, sample_mcp_config: MCPConfig):
+    def test_format_tool_use_message_openai(self, sample_mcp_config: MCPConfig) -> None:
         """Test formatting tool use message for OpenAI provider."""
         mock_client = MagicMock()
         mock_provider = MagicMock()
@@ -333,7 +333,7 @@ class TestQueryProcessor:
         assert isinstance(result, str)
         assert "test_tool" in result
 
-    def test_format_tool_result_message_anthropic(self, sample_mcp_config: MCPConfig):
+    def test_format_tool_result_message_anthropic(self, sample_mcp_config: MCPConfig) -> None:
         """Test formatting tool result message for Anthropic provider."""
         mock_client = MagicMock()
         mock_provider = MagicMock(spec=AnthropicProvider)
@@ -348,7 +348,7 @@ class TestQueryProcessor:
         assert result[0]["tool_use_id"] == "call_1"
         assert result[0]["content"] == "Tool result"
 
-    def test_format_tool_result_message_openai(self, sample_mcp_config: MCPConfig):
+    def test_format_tool_result_message_openai(self, sample_mcp_config: MCPConfig) -> None:
         """Test formatting tool result message for OpenAI provider."""
         mock_client = MagicMock()
         mock_provider = MagicMock()
@@ -360,7 +360,7 @@ class TestQueryProcessor:
         assert isinstance(result, str)
         assert "Tool result" in result
 
-    async def test_process_query_empty_response(self, sample_mcp_config: MCPConfig):
+    async def test_process_query_empty_response(self, sample_mcp_config: MCPConfig) -> None:
         """Test processing query with empty response."""
         mock_client = MagicMock()
         mock_client.session = MagicMock()

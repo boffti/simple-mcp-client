@@ -9,7 +9,7 @@ Uses FastAPI as an example, but the pattern works with any web framework.
 
 import asyncio
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, AsyncIterator
 
 # FastAPI example (install with: pip install fastapi uvicorn)
 try:
@@ -43,7 +43,7 @@ class ToolExecutionResponse(BaseModel):
 class MCPWebService:
     """Web service wrapper for MCP client"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.clients: dict[str, SimpleMCPClient] = {}
 
     async def get_or_create_client(self, server_name: str) -> SimpleMCPClient:
@@ -75,7 +75,7 @@ class MCPWebService:
         servers = temp_client.list_servers()
         return servers
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Clean up all clients"""
         for client in self.clients.values():
             await client.cleanup()
@@ -87,7 +87,7 @@ mcp_service = MCPWebService()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Handle application startup and shutdown"""
     # Startup
     print("🚀 Starting MCP Web Service")
@@ -107,12 +107,12 @@ if FASTAPI_AVAILABLE:
     )
 
     @app.get("/")
-    async def root():
+    async def root() -> dict[str, str]:
         """Root endpoint"""
         return {"message": "MCP Web Service", "status": "running"}
 
     @app.get("/servers")
-    async def get_servers():
+    async def get_servers() -> dict[str, list[str]]:
         """Get list of available MCP servers"""
         try:
             servers = await mcp_service.list_servers()
@@ -121,7 +121,7 @@ if FASTAPI_AVAILABLE:
             raise HTTPException(status_code=500, detail=str(e)) from e
 
     @app.get("/servers/{server_name}/tools")
-    async def get_tools(server_name: str):
+    async def get_tools(server_name: str) -> dict[str, list[dict[str, Any]]]:
         """Get available tools for a server"""
         try:
             tools = await mcp_service.list_tools(server_name)
@@ -130,7 +130,7 @@ if FASTAPI_AVAILABLE:
             raise HTTPException(status_code=500, detail=str(e)) from e
 
     @app.post("/execute")
-    async def execute_tool(request: ToolExecutionRequest):
+    async def execute_tool(request: ToolExecutionRequest) -> ToolExecutionResponse:
         """Execute a tool on an MCP server"""
         response = await mcp_service.execute_tool(request)
         if not response.success:
@@ -138,12 +138,12 @@ if FASTAPI_AVAILABLE:
         return response
 
     @app.get("/health")
-    async def health_check():
+    async def health_check() -> dict[str, Any]:
         """Health check endpoint"""
         return {"status": "healthy", "clients": len(mcp_service.clients)}
 
 
-async def example_direct_usage():
+async def example_direct_usage() -> None:
     """Example of using MCPWebService directly (without FastAPI)"""
     print("=== Direct Web Service Usage ===")
 
@@ -173,7 +173,7 @@ async def example_direct_usage():
         await service.cleanup()
 
 
-async def example_batch_operations():
+async def example_batch_operations() -> None:
     """Example of batch tool operations"""
     print("\n=== Batch Operations ===")
 
@@ -201,7 +201,7 @@ async def example_batch_operations():
         await service.cleanup()
 
 
-def run_web_server():
+def run_web_server() -> None:
     """Run the FastAPI web server"""
     if not FASTAPI_AVAILABLE:
         print("FastAPI not available. Install with: pip install fastapi uvicorn")
@@ -214,7 +214,7 @@ def run_web_server():
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
-async def main():
+async def main() -> None:
     """Run examples"""
     print("🌐 MCP Web Integration Examples")
     print("=" * 50)

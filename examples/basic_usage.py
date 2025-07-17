@@ -11,7 +11,7 @@ import asyncio
 from simple_mcp_client import SimpleMCPClient, execute_mcp_tool, list_mcp_tools
 
 
-async def example_1_basic_usage():
+async def example_1_basic_usage() -> None:
     """Example 1: Basic MCP client usage"""
     print("=== Example 1: Basic Usage ===")
 
@@ -37,7 +37,7 @@ async def example_1_basic_usage():
         await client.cleanup()
 
 
-async def example_2_context_manager():
+async def example_2_context_manager() -> None:
     """Example 2: Using async context manager"""
     print("\n=== Example 2: Context Manager ===")
 
@@ -51,7 +51,7 @@ async def example_2_context_manager():
         print(f"Current server: {client.get_current_server()}")
 
 
-async def example_3_direct_connection():
+async def example_3_direct_connection() -> None:
     """Example 3: Direct server connection (no config file)"""
     print("\n=== Example 3: Direct Connection ===")
 
@@ -65,7 +65,7 @@ async def example_3_direct_connection():
         print(f"Connected directly! Tools: {len(tools)}")
 
 
-async def example_4_convenience_functions():
+async def example_4_convenience_functions() -> None:
     """Example 4: Using convenience functions"""
     print("\n=== Example 4: Convenience Functions ===")
 
@@ -85,7 +85,7 @@ async def example_4_convenience_functions():
         print(f"Error: {e}")
 
 
-async def example_5_error_handling():
+async def example_5_error_handling() -> None:
     """Example 5: Proper error handling"""
     print("\n=== Example 5: Error Handling ===")
 
@@ -109,7 +109,7 @@ async def example_5_error_handling():
         await client.cleanup()
 
 
-async def example_6_server_management():
+async def example_6_server_management() -> None:
     """Example 6: Server management and info"""
     print("\n=== Example 6: Server Management ===")
 
@@ -140,7 +140,7 @@ async def example_6_server_management():
     await client.cleanup()
 
 
-async def main():
+async def main() -> None:
     """Run all examples"""
     print("🚀 SimpleMCPClient Examples")
     print("=" * 50)

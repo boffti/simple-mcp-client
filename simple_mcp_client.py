@@ -15,7 +15,7 @@ Usage:
 """
 
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -206,11 +206,11 @@ class SimpleMCPClient:
         self.available_tools = []
         self.current_server = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "SimpleMCPClient":
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         await self.cleanup()
 

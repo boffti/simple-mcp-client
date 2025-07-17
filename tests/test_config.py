@@ -4,21 +4,30 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 
-from config import (LLMConfig, MCPConfig, auto_detect_provider_from_env,
-                    get_api_key_from_env, load_legacy_config, load_llm_config,
-                    load_mcp_config, save_llm_config, save_mcp_config,
-                    validate_llm_config)
+from config import (
+    LLMConfig,
+    MCPConfig,
+    auto_detect_provider_from_env,
+    get_api_key_from_env,
+    load_legacy_config,
+    load_llm_config,
+    load_mcp_config,
+    save_llm_config,
+    save_mcp_config,
+    validate_llm_config,
+)
 from llm_providers import LLMProvider
 
 
 class TestLLMConfig:
     """Test cases for LLMConfig."""
 
-    def test_init_defaults(self):
+    def test_init_defaults(self) -> None:
         """Test LLMConfig initialization with defaults."""
         config = LLMConfig()
         assert config.provider == "anthropic"
@@ -26,7 +35,7 @@ class TestLLMConfig:
         assert config.max_tokens == 1000
         assert config.options == {}
 
-    def test_init_with_values(self):
+    def test_init_with_values(self) -> None:
         """Test LLMConfig initialization with custom values."""
         config = LLMConfig(
             provider="openai", model="gpt-4", max_tokens=2000, options={"temperature": 0.7}
@@ -36,39 +45,39 @@ class TestLLMConfig:
         assert config.max_tokens == 2000
         assert config.options == {"temperature": 0.7}
 
-    def test_init_openai_default_model(self):
+    def test_init_openai_default_model(self) -> None:
         """Test LLMConfig with OpenAI provider default model."""
         config = LLMConfig(provider="openai")
         assert config.model == "gpt-4-turbo"
 
-    def test_init_openrouter_default_model(self):
+    def test_init_openrouter_default_model(self) -> None:
         """Test LLMConfig with OpenRouter provider default model."""
         config = LLMConfig(provider="openrouter")
         assert config.model == "anthropic/claude-3.5-sonnet"
 
-    def test_post_init_none_options(self):
+    def test_post_init_none_options(self) -> None:
         """Test post_init with None options."""
-        config = LLMConfig(options=None)
+        config = LLMConfig(options=None)  # type: ignore
         assert config.options == {}
 
 
 class TestMCPConfig:
     """Test cases for MCPConfig."""
 
-    def test_init_defaults(self):
+    def test_init_defaults(self) -> None:
         """Test MCPConfig initialization with defaults."""
         config = MCPConfig()
         assert config.servers == {}
 
-    def test_init_with_servers(self):
+    def test_init_with_servers(self) -> None:
         """Test MCPConfig initialization with servers."""
         servers = {"test-server": {"command": "python", "args": ["-m", "test_server"]}}
         config = MCPConfig(servers=servers)
         assert config.servers == servers
 
-    def test_post_init_none_servers(self):
+    def test_post_init_none_servers(self) -> None:
         """Test post_init with None servers."""
-        config = MCPConfig(servers=None)
+        config = MCPConfig(servers=None)  # type: ignore
         assert config.servers == {}
 
 
@@ -103,7 +112,7 @@ class TestLoadLLMConfig:
         assert isinstance(config, LLMConfig)
         assert config.provider == "anthropic"  # default
 
-    def test_load_invalid_json(self):
+    def test_load_invalid_json(self) -> None:
         """Test loading invalid JSON file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("invalid json {")
@@ -116,7 +125,7 @@ class TestLoadLLMConfig:
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_load_partial_config(self):
+    def test_load_partial_config(self) -> None:
         """Test loading partial config file."""
         config_data = {"provider": "openai"}
 
@@ -136,7 +145,7 @@ class TestLoadLLMConfig:
 class TestLoadMCPConfig:
     """Test cases for load_mcp_config function."""
 
-    def test_load_valid_config_new_format(self):
+    def test_load_valid_config_new_format(self) -> None:
         """Test loading valid MCP config file (new format)."""
         config_data = {
             "servers": {"test-server": {"command": "python", "args": ["-m", "test_server"]}}
@@ -153,7 +162,7 @@ class TestLoadMCPConfig:
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_load_valid_config_old_format(self):
+    def test_load_valid_config_old_format(self) -> None:
         """Test loading valid MCP config file (old format)."""
         config_data = {
             "mcpServers": {"test-server": {"command": "python", "args": ["-m", "test_server"]}}
@@ -170,13 +179,13 @@ class TestLoadMCPConfig:
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_load_missing_file(self):
+    def test_load_missing_file(self) -> None:
         """Test loading missing MCP config file."""
         config = load_mcp_config("nonexistent.json")
         assert isinstance(config, MCPConfig)
         assert config.servers == {}
 
-    def test_load_invalid_json(self):
+    def test_load_invalid_json(self) -> None:
         """Test loading invalid JSON file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("invalid json {")
@@ -189,9 +198,9 @@ class TestLoadMCPConfig:
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_load_empty_config(self):
+    def test_load_empty_config(self) -> None:
         """Test loading empty config file."""
-        config_data = {}
+        config_data: dict[str, Any] = {}
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(config_data, f)
@@ -207,7 +216,7 @@ class TestLoadMCPConfig:
 class TestLoadLegacyConfig:
     """Test cases for load_legacy_config function."""
 
-    def test_load_legacy_combined_config(self):
+    def test_load_legacy_combined_config(self) -> None:
         """Test loading legacy combined config file."""
         config_data = {
             "mcpServers": {"test-server": {"command": "python", "args": ["-m", "test_server"]}},
@@ -226,7 +235,7 @@ class TestLoadLegacyConfig:
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_load_legacy_mcp_only(self):
+    def test_load_legacy_mcp_only(self) -> None:
         """Test loading legacy config with only MCP servers."""
         config_data = {
             "mcpServers": {"test-server": {"command": "python", "args": ["-m", "test_server"]}}
@@ -243,7 +252,7 @@ class TestLoadLegacyConfig:
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
-    def test_load_legacy_missing_file(self):
+    def test_load_legacy_missing_file(self) -> None:
         """Test loading missing legacy config file."""
         mcp_config, llm_config = load_legacy_config("nonexistent.json")
         assert isinstance(mcp_config, MCPConfig)
@@ -255,30 +264,30 @@ class TestLoadLegacyConfig:
 class TestGetApiKeyFromEnv:
     """Test cases for get_api_key_from_env function."""
 
-    def test_anthropic_api_key(self):
+    def test_anthropic_api_key(self) -> None:
         """Test getting Anthropic API key from environment."""
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             key = get_api_key_from_env("anthropic")
             assert key == "test-key"
 
-    def test_openai_api_key(self):
+    def test_openai_api_key(self) -> None:
         """Test getting OpenAI API key from environment."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             key = get_api_key_from_env("openai")
             assert key == "test-key"
 
-    def test_openrouter_api_key(self):
+    def test_openrouter_api_key(self) -> None:
         """Test getting OpenRouter API key from environment."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}):
             key = get_api_key_from_env("openrouter")
             assert key == "test-key"
 
-    def test_unknown_provider(self):
+    def test_unknown_provider(self) -> None:
         """Test getting API key for unknown provider."""
         key = get_api_key_from_env("unknown")
         assert key is None
 
-    def test_missing_api_key(self):
+    def test_missing_api_key(self) -> None:
         """Test getting API key when not set."""
         with patch.dict(os.environ, {}, clear=True):
             key = get_api_key_from_env("anthropic")
@@ -288,28 +297,28 @@ class TestGetApiKeyFromEnv:
 class TestAutoDetectProviderFromEnv:
     """Test cases for auto_detect_provider_from_env function."""
 
-    def test_detect_anthropic(self):
+    def test_detect_anthropic(self) -> None:
         """Test auto-detecting Anthropic provider."""
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=True):
             provider, key = auto_detect_provider_from_env()
             assert provider == "anthropic"
             assert key == "test-key"
 
-    def test_detect_openai(self):
+    def test_detect_openai(self) -> None:
         """Test auto-detecting OpenAI provider."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=True):
             provider, key = auto_detect_provider_from_env()
             assert provider == "openai"
             assert key == "test-key"
 
-    def test_detect_openrouter(self):
+    def test_detect_openrouter(self) -> None:
         """Test auto-detecting OpenRouter provider."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}, clear=True):
             provider, key = auto_detect_provider_from_env()
             assert provider == "openrouter"
             assert key == "test-key"
 
-    def test_detect_priority_order(self):
+    def test_detect_priority_order(self) -> None:
         """Test provider detection priority order."""
         with patch.dict(
             os.environ,
@@ -324,7 +333,7 @@ class TestAutoDetectProviderFromEnv:
             assert provider == "anthropic"  # Should prefer Anthropic
             assert key == "anthropic-key"
 
-    def test_detect_no_keys(self):
+    def test_detect_no_keys(self) -> None:
         """Test auto-detection when no API keys are set."""
         with patch.dict(os.environ, {}, clear=True):
             provider, key = auto_detect_provider_from_env()
@@ -335,25 +344,25 @@ class TestAutoDetectProviderFromEnv:
 class TestValidateLLMConfig:
     """Test cases for validate_llm_config function."""
 
-    def test_validate_valid_config(self):
+    def test_validate_valid_config(self) -> None:
         """Test validating valid LLM config."""
         config = LLMConfig(provider="anthropic", max_tokens=1000)
         # Should not raise any exception
         validate_llm_config(config)
 
-    def test_validate_invalid_provider(self):
+    def test_validate_invalid_provider(self) -> None:
         """Test validating config with invalid provider."""
         config = LLMConfig(provider="invalid", max_tokens=1000)
         with pytest.raises(ValueError, match="Invalid LLM provider"):
             validate_llm_config(config)
 
-    def test_validate_invalid_max_tokens(self):
+    def test_validate_invalid_max_tokens(self) -> None:
         """Test validating config with invalid max_tokens."""
         config = LLMConfig(provider="anthropic", max_tokens=0)
         with pytest.raises(ValueError, match="max_tokens must be positive"):
             validate_llm_config(config)
 
-    def test_validate_negative_max_tokens(self):
+    def test_validate_negative_max_tokens(self) -> None:
         """Test validating config with negative max_tokens."""
         config = LLMConfig(provider="anthropic", max_tokens=-100)
         with pytest.raises(ValueError, match="max_tokens must be positive"):
@@ -363,7 +372,7 @@ class TestValidateLLMConfig:
 class TestSaveLLMConfig:
     """Test cases for save_llm_config function."""
 
-    def test_save_config(self):
+    def test_save_config(self) -> None:
         """Test saving LLM config to file."""
         config = LLMConfig(
             provider="openai", model="gpt-4", max_tokens=1500, options={"temperature": 0.7}
@@ -390,7 +399,7 @@ class TestSaveLLMConfig:
 class TestSaveMCPConfig:
     """Test cases for save_mcp_config function."""
 
-    def test_save_config(self):
+    def test_save_config(self) -> None:
         """Test saving MCP config to file."""
         config = MCPConfig(
             servers={

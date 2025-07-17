@@ -10,9 +10,11 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List
 
-from anthropic import Anthropic
+from anthropic import NOT_GIVEN, Anthropic
+from anthropic.types import MessageParam
+from anthropic._types import NotGiven
 
 
 class LLMProvider(Enum):
@@ -43,7 +45,7 @@ class LLMMessage:
 class BaseLLMProvider(ABC):
     """Abstract base class for LLM providers."""
 
-    def __init__(self, api_key: str, model: str, **kwargs):
+    def __init__(self, api_key: str, model: str, **kwargs: Any) -> None:
         self.api_key = api_key
         self.model = model
         self.kwargs = kwargs
@@ -67,7 +69,9 @@ class BaseLLMProvider(ABC):
 class AnthropicProvider(BaseLLMProvider):
     """Anthropic Claude provider implementation."""
 
-    def __init__(self, api_key: str, model: str = "claude-3-5-sonnet-20241022", **kwargs):
+    def __init__(
+        self, api_key: str, model: str = "claude-3-5-sonnet-20241022", **kwargs: Any
+    ) -> None:
         super().__init__(api_key, model, **kwargs)
         self.client = Anthropic(api_key=api_key)
 
@@ -78,16 +82,22 @@ class AnthropicProvider(BaseLLMProvider):
         max_tokens: int = 1000,
     ) -> LLMResponse:
         """Create a message using Anthropic's API."""
-        # Convert messages to Anthropic format
-        anthropic_messages = []
+
+        # Convert messages to proper type
+        typed_messages: List[MessageParam] = []
         for msg in messages:
-            anthropic_messages.append({"role": msg.role, "content": msg.content})
+            typed_messages.append(MessageParam({"role": msg.role, "content": msg.content}))  # type: ignore
+
+        # Handle tools parameter - use proper NotGiven type
+        tools_param: list[dict[str, Any]] | NotGiven = NOT_GIVEN
+        if tools:
+            tools_param = tools
 
         response = self.client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
-            messages=anthropic_messages,
-            tools=tools if tools else None,
+            messages=typed_messages,
+            tools=tools_param,  # type: ignore
         )
 
         # Parse response
@@ -115,8 +125,8 @@ class OpenAIProvider(BaseLLMProvider):
     """OpenAI provider implementation."""
 
     def __init__(
-        self, api_key: str, model: str = "gpt-4-turbo", base_url: str | None = None, **kwargs
-    ):
+        self, api_key: str, model: str = "gpt-4-turbo", base_url: str | None = None, **kwargs: Any
+    ) -> None:
         super().__init__(api_key, model, **kwargs)
         try:
             import openai
@@ -139,17 +149,25 @@ class OpenAIProvider(BaseLLMProvider):
         for msg in messages:
             openai_messages.append({"role": msg.role, "content": msg.content})
 
-        kwargs = {
+        # Import the required types
+        from openai.types.chat import ChatCompletionMessageParam
+
+        # Convert messages to proper type
+        typed_messages: List[ChatCompletionMessageParam] = []
+        for msg in messages:
+            typed_messages.append({"role": msg.role, "content": msg.content})  # type: ignore
+
+        request_kwargs: Dict[str, Any] = {
             "model": self.model,
-            "messages": openai_messages,
+            "messages": typed_messages,
             "max_tokens": max_tokens,
         }
 
         if tools:
-            kwargs["tools"] = tools
-            kwargs["tool_choice"] = "auto"
+            request_kwargs["tools"] = tools
+            request_kwargs["tool_choice"] = "auto"
 
-        response = self.client.chat.completions.create(**kwargs)
+        response = self.client.chat.completions.create(**request_kwargs)
 
         # Parse response
         text_content = []
@@ -186,14 +204,16 @@ class OpenAIProvider(BaseLLMProvider):
 class OpenRouterProvider(OpenAIProvider):
     """OpenRouter provider implementation (OpenAI-compatible)."""
 
-    def __init__(self, api_key: str, model: str = "anthropic/claude-3.5-sonnet", **kwargs):
+    def __init__(
+        self, api_key: str, model: str = "anthropic/claude-3.5-sonnet", **kwargs: Any
+    ) -> None:
         super().__init__(
             api_key=api_key, model=model, base_url="https://openrouter.ai/api/v1", **kwargs
         )
 
 
 def create_llm_provider(
-    provider: LLMProvider, api_key: str, model: str | None = None, **kwargs
+    provider: LLMProvider, api_key: str, model: str | None = None, **kwargs: Any
 ) -> BaseLLMProvider:
     """Factory function to create LLM providers."""
     if provider == LLMProvider.ANTHROPIC:

@@ -18,6 +18,7 @@ Features:
 """
 
 import asyncio
+from typing import Any, Optional
 
 # Load environment variables from .env file
 try:
@@ -27,8 +28,7 @@ try:
 except ImportError:
     pass  # dotenv not installed, skip
 
-from config import (LLMConfig, auto_detect_provider_from_env, load_llm_config,
-                    validate_llm_config)
+from config import LLMConfig, auto_detect_provider_from_env, load_llm_config, validate_llm_config
 from llm_providers import LLMProvider, create_llm_provider
 from mcp_client import QueryProcessor
 from simple_mcp_client import SimpleMCPClient
@@ -59,7 +59,7 @@ class InteractiveMCPCLI:
         )
 
         # Create query processor
-        self.query_processor = None
+        self.query_processor: Optional[QueryProcessor] = None
 
     async def connect_to_server(self, server_name: str | None = None) -> bool:
         """Connect to MCP server and initialize query processor."""
@@ -88,7 +88,7 @@ class InteractiveMCPCLI:
             print(f"Failed to connect to server: {e}")
             return False
 
-    async def run_interactive_session(self):
+    async def run_interactive_session(self) -> None:
         """Run the interactive chat session."""
         print("\n" + "=" * 60)
         print(f"Interactive MCP CLI ({self.llm_config.provider})")
@@ -150,7 +150,7 @@ class InteractiveMCPCLI:
                     traceback.print_exc()
                 continue
 
-    def _show_help(self):
+    def _show_help(self) -> None:
         """Show help information."""
         print("\n📖 Available Commands:")
         print("  help         - Show this help message")
@@ -163,7 +163,7 @@ class InteractiveMCPCLI:
         print("  - Use natural language to interact with your MCP tools")
         print("  - Tools are executed automatically when needed")
 
-    def _show_tools(self):
+    def _show_tools(self) -> None:
         """Show available MCP tools."""
         if not self.mcp_client.is_connected():
             print("❌ Not connected to any server")
@@ -178,7 +178,7 @@ class InteractiveMCPCLI:
         for tool in tools:
             print(f"  • {tool['name']}: {tool['description']}")
 
-    def _show_status(self):
+    def _show_status(self) -> None:
         """Show connection and configuration status."""
         print("\n📊 Status:")
         print(f"  LLM Provider: {self.llm_config.provider}")
@@ -190,7 +190,7 @@ class InteractiveMCPCLI:
         print(f"  Available Tools: {len(self.mcp_client.get_available_tools())}")
 
 
-async def main():
+async def main() -> None:
     """Main entry point for the interactive CLI."""
     print("🚀 Simple MCP Interactive CLI")
     print("=" * 50)

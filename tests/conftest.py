@@ -3,7 +3,7 @@
 import asyncio
 import json
 import tempfile
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -67,44 +67,49 @@ def sample_tools() -> list[dict[str, Any]]:
 def mock_client_session() -> AsyncMock:
     """Mock MCP client session."""
     mock_session = AsyncMock(spec=ClientSession)
+
     mock_session.initialize = AsyncMock()
     mock_session.list_tools = AsyncMock()
     mock_session.call_tool = AsyncMock()
+
+    # Make it work as an async context manager
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+
     return mock_session
 
 
 @pytest.fixture
 def mock_stdio_client():
     """Mock stdio client for MCP connections."""
-    mock_client = AsyncMock()
-
     # Create mock context manager that returns read_stream, write_stream
-    async def async_context_manager():
-        return (AsyncMock(), AsyncMock())
-
     mock_context = AsyncMock()
-    mock_context.__aenter__ = AsyncMock(return_value=async_context_manager())
+    mock_context.__aenter__ = AsyncMock(return_value=(AsyncMock(), AsyncMock()))
     mock_context.__aexit__ = AsyncMock(return_value=None)
 
-    mock_client.return_value = mock_context
-    return mock_client
+    # Return a function that returns the context manager directly (not a coroutine)
+    def mock_client_func(*args, **kwargs):
+        return mock_context
+
+    return mock_client_func
 
 
 @pytest.fixture
-def temp_config_file(sample_mcp_config: MCPConfig) -> AsyncGenerator[str, None]:
+def temp_config_file(sample_mcp_config: MCPConfig) -> Generator[str, None, None]:
     """Create temporary config file for testing."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump({"mcpServers": sample_mcp_config.servers}, f)
         temp_path = f.name
 
-    yield temp_path
-
-    # Cleanup
-    Path(temp_path).unlink(missing_ok=True)
+    try:
+        yield temp_path
+    finally:
+        # Cleanup
+        Path(temp_path).unlink(missing_ok=True)
 
 
 @pytest.fixture
-def temp_llm_config_file(sample_llm_config: LLMConfig) -> AsyncGenerator[str, None]:
+def temp_llm_config_file(sample_llm_config: LLMConfig) -> Generator[str, None, None]:
     """Create temporary LLM config file for testing."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(
@@ -118,10 +123,11 @@ def temp_llm_config_file(sample_llm_config: LLMConfig) -> AsyncGenerator[str, No
         )
         temp_path = f.name
 
-    yield temp_path
-
-    # Cleanup
-    Path(temp_path).unlink(missing_ok=True)
+    try:
+        yield temp_path
+    finally:
+        # Cleanup
+        Path(temp_path).unlink(missing_ok=True)
 
 
 @pytest.fixture
@@ -146,7 +152,8 @@ async def connected_client(
 
     # Mock the ClientSession
     original_client_session = smc_module.ClientSession
-    smc_module.ClientSession = lambda *args, **kwargs: mock_client_session
+
+    smc_module.ClientSession = lambda *args, **kwargs: mock_client_session  # type: ignore
 
     # Mock list_tools response
     mock_tools_response = MagicMock()
@@ -168,7 +175,7 @@ async def connected_client(
     # Cleanup
     await simple_mcp_client.cleanup()
     smc_module.stdio_client = original_stdio_client
-    smc_module.ClientSession = original_client_session
+    smc_module.ClientSession = original_client_session  # type: ignore
 
 
 @pytest.fixture
