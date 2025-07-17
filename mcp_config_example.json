@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "python",
+      "args": ["-m", "mcp_server_filesystem"],
+      "description": "File system operations server"
+    },
+    "git": {
+      "command": "python",
+      "args": ["-m", "mcp_server_git"],
+      "description": "Git operations server"
+    },
+    "web": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-web"],
+      "description": "Web scraping and requests server"
+    },
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://username:password@localhost:5432/database_name"
+      ],
+      "description": "PostgreSQL database server"
+    },
+    "custom-server": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/your/project", "run", "python", "-m", "your_module.main"],
+      "description": "Custom MCP server example"
+    },
+    "database": {
+      "command": "python",
+      "args": ["/path/to/database_server.py"],
+      "description": "Database operations server",
+      "env": {
+        "DB_HOST": "localhost",
+        "DB_PORT": "5432",
+        "DB_NAME": "your_database",
+        "DB_USER": "your_username",
+        "DB_PASSWORD": "your_password"
+      }
+    }
+  }
+}
