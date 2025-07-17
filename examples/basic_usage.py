@@ -7,6 +7,7 @@ This file demonstrates how to use the SimpleMCPClient in your own applications.
 """
 
 import asyncio
+
 from simple_mcp_client import SimpleMCPClient, execute_mcp_tool, list_mcp_tools
 
 

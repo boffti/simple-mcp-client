@@ -8,18 +8,10 @@ from unittest.mock import patch
 
 import pytest
 
-from config import (
-    LLMConfig,
-    MCPConfig,
-    load_llm_config,
-    load_mcp_config,
-    load_legacy_config,
-    get_api_key_from_env,
-    auto_detect_provider_from_env,
-    validate_llm_config,
-    save_llm_config,
-    save_mcp_config,
-)
+from config import (LLMConfig, MCPConfig, auto_detect_provider_from_env,
+                    get_api_key_from_env, load_legacy_config, load_llm_config,
+                    load_mcp_config, save_llm_config, save_mcp_config,
+                    validate_llm_config)
 from llm_providers import LLMProvider
 
 
@@ -384,7 +376,7 @@ class TestSaveLLMConfig:
             save_llm_config(config, temp_path)
 
             # Verify file was created and contains correct data
-            with open(temp_path, "r") as f:
+            with open(temp_path) as f:
                 saved_data = json.load(f)
 
             assert saved_data["provider"] == "openai"
@@ -417,7 +409,7 @@ class TestSaveMCPConfig:
             save_mcp_config(config, temp_path)
 
             # Verify file was created and contains correct data
-            with open(temp_path, "r") as f:
+            with open(temp_path) as f:
                 saved_data = json.load(f)
 
             assert "mcpServers" in saved_data

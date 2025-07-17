@@ -8,8 +8,8 @@ Uses FastAPI as an example, but the pattern works with any web framework.
 """
 
 import asyncio
-from typing import Dict, Any, List
 from contextlib import asynccontextmanager
+from typing import Any
 
 # FastAPI example (install with: pip install fastapi uvicorn)
 try:
@@ -29,7 +29,7 @@ class ToolExecutionRequest(BaseModel):
 
     server_name: str
     tool_name: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
 
 
 class ToolExecutionResponse(BaseModel):
@@ -44,7 +44,7 @@ class MCPWebService:
     """Web service wrapper for MCP client"""
 
     def __init__(self):
-        self.clients: Dict[str, SimpleMCPClient] = {}
+        self.clients: dict[str, SimpleMCPClient] = {}
 
     async def get_or_create_client(self, server_name: str) -> SimpleMCPClient:
         """Get existing client or create new one for server"""
@@ -63,12 +63,12 @@ class MCPWebService:
         except Exception as e:
             return ToolExecutionResponse(success=False, error=str(e))
 
-    async def list_tools(self, server_name: str) -> List[Dict[str, Any]]:
+    async def list_tools(self, server_name: str) -> list[dict[str, Any]]:
         """List available tools for a server"""
         client = await self.get_or_create_client(server_name)
         return client.get_available_tools()
 
-    async def list_servers(self) -> List[str]:
+    async def list_servers(self) -> list[str]:
         """List all available servers"""
         # Create a temporary client to get server list
         temp_client = SimpleMCPClient()
@@ -118,7 +118,7 @@ if FASTAPI_AVAILABLE:
             servers = await mcp_service.list_servers()
             return {"servers": servers}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     @app.get("/servers/{server_name}/tools")
     async def get_tools(server_name: str):
@@ -127,7 +127,7 @@ if FASTAPI_AVAILABLE:
             tools = await mcp_service.list_tools(server_name)
             return {"server": server_name, "tools": tools}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     @app.post("/execute")
     async def execute_tool(request: ToolExecutionRequest):

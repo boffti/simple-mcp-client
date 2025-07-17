@@ -1,19 +1,13 @@
 """Tests for LLM providers."""
 
-import pytest
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any
 
-from llm_providers import (
-    LLMProvider,
-    LLMMessage,
-    LLMResponse,
-    BaseLLMProvider,
-    AnthropicProvider,
-    OpenAIProvider,
-    OpenRouterProvider,
-    create_llm_provider,
-)
+import pytest
+
+from llm_providers import (AnthropicProvider, BaseLLMProvider, LLMMessage,
+                           LLMProvider, LLMResponse, OpenAIProvider,
+                           OpenRouterProvider, create_llm_provider)
 
 
 class TestLLMProvider:

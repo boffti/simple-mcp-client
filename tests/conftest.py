@@ -3,14 +3,15 @@
 import asyncio
 import json
 import tempfile
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Dict, Any, AsyncGenerator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from mcp import ClientSession
 
-from config import MCPConfig, LLMConfig
+from config import LLMConfig, MCPConfig
 from simple_mcp_client import SimpleMCPClient
 
 
@@ -46,7 +47,7 @@ def sample_llm_config() -> LLMConfig:
 
 
 @pytest.fixture
-def sample_tools() -> list[Dict[str, Any]]:
+def sample_tools() -> list[dict[str, Any]]:
     """Sample tools for testing."""
     return [
         {
@@ -134,7 +135,7 @@ async def connected_client(
     simple_mcp_client: SimpleMCPClient,
     mock_client_session: AsyncMock,
     mock_stdio_client: AsyncMock,
-    sample_tools: list[Dict[str, Any]],
+    sample_tools: list[dict[str, Any]],
 ) -> AsyncGenerator[SimpleMCPClient, None]:
     """Create connected SimpleMCPClient for testing."""
     # Mock the stdio client

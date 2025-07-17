@@ -9,11 +9,11 @@ to create intelligent agents that can use MCP tools.
 
 import asyncio
 import json
-from typing import Dict, Any, List, Optional
+from typing import Any
 
+from config import get_api_key_from_env, load_llm_config
+from llm_providers import LLMMessage, LLMProvider, create_llm_provider
 from simple_mcp_client import SimpleMCPClient
-from llm_providers import create_llm_provider, LLMProvider, LLMMessage
-from config import load_llm_config, get_api_key_from_env
 
 
 class MCPAgent:
@@ -61,7 +61,7 @@ class MCPAgent:
 
         return result
 
-    def _create_system_prompt(self, tools: List[Dict[str, Any]]) -> str:
+    def _create_system_prompt(self, tools: list[dict[str, Any]]) -> str:
         """Create system prompt with tool descriptions"""
         tool_descriptions = []
         for tool in tools:
@@ -75,14 +75,14 @@ You can use these tools to help users accomplish tasks:
 When you need to use a tool, the system will execute it for you and provide the results.
 Be helpful and use the appropriate tools to complete user requests."""
 
-    def _format_tools_for_llm(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _format_tools_for_llm(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Format tools for LLM provider"""
         formatted_tools = []
         for tool in tools:
             formatted_tools.append(self.llm_provider.format_tool_for_provider(tool))
         return formatted_tools
 
-    async def _process_response(self, response, messages: List[LLMMessage]) -> str:
+    async def _process_response(self, response, messages: list[LLMMessage]) -> str:
         """Process LLM response and execute tools if needed"""
         result_parts = response.text_content.copy()
 
@@ -250,7 +250,7 @@ class TaskPlanningAgent(MCPAgent):
         # First, create a plan
         plan_prompt = f"""
         Create a step-by-step plan to accomplish this goal: {goal}
-        
+
         Consider the available tools and break down the task into logical steps.
         Return the plan as a numbered list.
         """
@@ -262,9 +262,8 @@ class TaskPlanningAgent(MCPAgent):
         execution_prompt = f"""
         Now execute the plan you created:
         {plan_response}
-        
+
         Goal: {goal}
-        
         Execute each step using the available tools.
         """
 

@@ -9,7 +9,7 @@ Supports separate configuration files for better organization.
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from llm_providers import LLMProvider
 
@@ -19,9 +19,9 @@ class LLMConfig:
     """LLM configuration structure."""
 
     provider: str = "anthropic"
-    model: Optional[str] = None
+    model: str | None = None
     max_tokens: int = 1000
-    options: Dict[str, Any] = None
+    options: dict[str, Any] = None
 
     def __post_init__(self):
         if self.options is None:
@@ -41,7 +41,7 @@ class LLMConfig:
 class MCPConfig:
     """MCP configuration structure."""
 
-    servers: Dict[str, Dict[str, Any]] = None
+    servers: dict[str, dict[str, Any]] = None
 
     def __post_init__(self):
         if self.servers is None:
@@ -51,7 +51,7 @@ class MCPConfig:
 def load_llm_config(config_path: str = "llm_config.json") -> LLMConfig:
     """Load LLM configuration from JSON file."""
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config_data = json.load(f)
             return LLMConfig(**config_data)
     except FileNotFoundError:
@@ -68,7 +68,7 @@ def load_llm_config(config_path: str = "llm_config.json") -> LLMConfig:
 def load_mcp_config(config_path: str = "mcp_config.json") -> MCPConfig:
     """Load MCP configuration from JSON file."""
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config_data = json.load(f)
             # Support both old and new format for backward compatibility
             if "servers" in config_data:
@@ -93,7 +93,7 @@ def load_mcp_config(config_path: str = "mcp_config.json") -> MCPConfig:
 def load_legacy_config(config_path: str = "mcp_config.json") -> tuple[MCPConfig, LLMConfig]:
     """Load legacy combined configuration and split into MCP and LLM configs."""
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             config = json.load(f)
 
             # Extract MCP configuration
@@ -125,7 +125,7 @@ def load_legacy_config(config_path: str = "mcp_config.json") -> tuple[MCPConfig,
         return MCPConfig(), LLMConfig()
 
 
-def get_api_key_from_env(provider: str) -> Optional[str]:
+def get_api_key_from_env(provider: str) -> str | None:
     """Get API key from environment variables based on provider."""
     if provider == "anthropic":
         return os.getenv("ANTHROPIC_API_KEY")
@@ -137,7 +137,7 @@ def get_api_key_from_env(provider: str) -> Optional[str]:
         return None
 
 
-def auto_detect_provider_from_env() -> tuple[Optional[str], Optional[str]]:
+def auto_detect_provider_from_env() -> tuple[str | None, str | None]:
     """Auto-detect provider and API key from environment variables."""
     providers = [
         ("anthropic", "ANTHROPIC_API_KEY"),
@@ -157,10 +157,10 @@ def validate_llm_config(config: LLMConfig) -> None:
     """Validate LLM configuration."""
     try:
         LLMProvider(config.provider)
-    except ValueError:
+    except ValueError as err:
         raise ValueError(
             f"Invalid LLM provider: {config.provider}. Supported providers: {[p.value for p in LLMProvider]}"
-        )
+        ) from err
 
     if config.max_tokens <= 0:
         raise ValueError("max_tokens must be positive")

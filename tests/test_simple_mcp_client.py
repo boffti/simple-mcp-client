@@ -1,11 +1,12 @@
 """Tests for SimpleMCPClient."""
 
-import pytest
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any
 
-from simple_mcp_client import SimpleMCPClient, execute_mcp_tool, list_mcp_tools
+import pytest
+
 from config import MCPConfig
+from simple_mcp_client import SimpleMCPClient, execute_mcp_tool, list_mcp_tools
 
 
 class TestSimpleMCPClient:
@@ -128,7 +129,7 @@ class TestSimpleMCPClient:
             mock_tools_response.tools = []
             mock_session.list_tools.return_value = mock_tools_response
 
-            tools = await simple_mcp_client.connect_to_server()
+            await simple_mcp_client.connect_to_server()
 
             # Should auto-connect to first server
             assert simple_mcp_client.get_current_server() == "test-server"

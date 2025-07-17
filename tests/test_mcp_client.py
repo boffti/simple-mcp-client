@@ -1,12 +1,13 @@
 """Tests for MCPClient and QueryProcessor."""
 
-import pytest
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any
 
-from mcp_client import MCPClient, QueryProcessor
+import pytest
+
 from config import MCPConfig
 from llm_providers import AnthropicProvider, LLMMessage, LLMResponse
+from mcp_client import MCPClient, QueryProcessor
 
 
 class TestMCPClient:

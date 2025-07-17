@@ -10,7 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from anthropic import Anthropic
 
@@ -27,8 +27,8 @@ class LLMProvider(Enum):
 class LLMResponse:
     """Standardized response from LLM providers."""
 
-    text_content: List[str]
-    tool_calls: List[Dict[str, Any]]
+    text_content: list[str]
+    tool_calls: list[dict[str, Any]]
     raw_response: Any
 
 
@@ -51,15 +51,15 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     async def create_message(
         self,
-        messages: List[LLMMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[LLMMessage],
+        tools: list[dict[str, Any]] | None = None,
         max_tokens: int = 1000,
     ) -> LLMResponse:
         """Create a message with the LLM provider."""
         pass
 
     @abstractmethod
-    def format_tool_for_provider(self, tool: Dict[str, Any]) -> Dict[str, Any]:
+    def format_tool_for_provider(self, tool: dict[str, Any]) -> dict[str, Any]:
         """Format MCP tool for the specific provider."""
         pass
 
@@ -73,8 +73,8 @@ class AnthropicProvider(BaseLLMProvider):
 
     async def create_message(
         self,
-        messages: List[LLMMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[LLMMessage],
+        tools: list[dict[str, Any]] | None = None,
         max_tokens: int = 1000,
     ) -> LLMResponse:
         """Create a message using Anthropic's API."""
@@ -102,7 +102,7 @@ class AnthropicProvider(BaseLLMProvider):
 
         return LLMResponse(text_content=text_content, tool_calls=tool_calls, raw_response=response)
 
-    def format_tool_for_provider(self, tool: Dict[str, Any]) -> Dict[str, Any]:
+    def format_tool_for_provider(self, tool: dict[str, Any]) -> dict[str, Any]:
         """Format tool for Anthropic API."""
         return {
             "name": tool["name"],
@@ -115,22 +115,22 @@ class OpenAIProvider(BaseLLMProvider):
     """OpenAI provider implementation."""
 
     def __init__(
-        self, api_key: str, model: str = "gpt-4-turbo", base_url: Optional[str] = None, **kwargs
+        self, api_key: str, model: str = "gpt-4-turbo", base_url: str | None = None, **kwargs
     ):
         super().__init__(api_key, model, **kwargs)
         try:
             import openai
 
             self.client = openai.OpenAI(api_key=api_key, base_url=base_url)
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "openai package is required for OpenAI provider. Install with: pip install openai"
-            )
+            ) from err
 
     async def create_message(
         self,
-        messages: List[LLMMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[LLMMessage],
+        tools: list[dict[str, Any]] | None = None,
         max_tokens: int = 1000,
     ) -> LLMResponse:
         """Create a message using OpenAI's API."""
@@ -171,7 +171,7 @@ class OpenAIProvider(BaseLLMProvider):
 
         return LLMResponse(text_content=text_content, tool_calls=tool_calls, raw_response=response)
 
-    def format_tool_for_provider(self, tool: Dict[str, Any]) -> Dict[str, Any]:
+    def format_tool_for_provider(self, tool: dict[str, Any]) -> dict[str, Any]:
         """Format tool for OpenAI API."""
         return {
             "type": "function",
@@ -193,7 +193,7 @@ class OpenRouterProvider(OpenAIProvider):
 
 
 def create_llm_provider(
-    provider: LLMProvider, api_key: str, model: Optional[str] = None, **kwargs
+    provider: LLMProvider, api_key: str, model: str | None = None, **kwargs
 ) -> BaseLLMProvider:
     """Factory function to create LLM providers."""
     if provider == LLMProvider.ANTHROPIC:

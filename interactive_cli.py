@@ -18,8 +18,6 @@ Features:
 """
 
 import asyncio
-import os
-from typing import Optional
 
 # Load environment variables from .env file
 try:
@@ -29,16 +27,11 @@ try:
 except ImportError:
     pass  # dotenv not installed, skip
 
-from simple_mcp_client import SimpleMCPClient
-from config import (
-    load_llm_config,
-    auto_detect_provider_from_env,
-    get_api_key_from_env,
-    validate_llm_config,
-    LLMConfig,
-)
-from llm_providers import create_llm_provider, LLMProvider
+from config import (LLMConfig, auto_detect_provider_from_env, load_llm_config,
+                    validate_llm_config)
+from llm_providers import LLMProvider, create_llm_provider
 from mcp_client import QueryProcessor
+from simple_mcp_client import SimpleMCPClient
 
 
 class InteractiveMCPCLI:
@@ -68,7 +61,7 @@ class InteractiveMCPCLI:
         # Create query processor
         self.query_processor = None
 
-    async def connect_to_server(self, server_name: Optional[str] = None) -> bool:
+    async def connect_to_server(self, server_name: str | None = None) -> bool:
         """Connect to MCP server and initialize query processor."""
         try:
             # Connect to server

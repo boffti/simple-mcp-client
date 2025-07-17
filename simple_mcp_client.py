@@ -15,7 +15,7 @@ Usage:
 """
 
 from contextlib import AsyncExitStack
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -34,7 +34,7 @@ class SimpleMCPClient:
     - Handle server lifecycle
     """
 
-    def __init__(self, config_path: str = "mcp_config.json", config: Optional[MCPConfig] = None):
+    def __init__(self, config_path: str = "mcp_config.json", config: MCPConfig | None = None):
         """
         Initialize the MCP client.
 
@@ -43,20 +43,20 @@ class SimpleMCPClient:
             config: Optional MCPConfig object (overrides config_path)
         """
         self.config = config or load_mcp_config(config_path)
-        self.session: Optional[ClientSession] = None
-        self.available_tools: List[Dict[str, Any]] = []
+        self.session: ClientSession | None = None
+        self.available_tools: list[dict[str, Any]] = []
         self.exit_stack = AsyncExitStack()
-        self.current_server: Optional[str] = None
+        self.current_server: str | None = None
 
-    def list_servers(self) -> List[str]:
+    def list_servers(self) -> list[str]:
         """List all configured MCP servers."""
         return list(self.config.servers.keys())
 
-    def get_server_info(self, server_name: str) -> Dict[str, Any]:
+    def get_server_info(self, server_name: str) -> dict[str, Any]:
         """Get configuration info for a specific server."""
         return self.config.servers.get(server_name, {})
 
-    def get_available_tools(self) -> List[Dict[str, Any]]:
+    def get_available_tools(self) -> list[dict[str, Any]]:
         """Get list of available tools from connected server."""
         return self.available_tools.copy()
 
@@ -64,17 +64,17 @@ class SimpleMCPClient:
         """Check if client is connected to a server."""
         return self.session is not None
 
-    def get_current_server(self) -> Optional[str]:
+    def get_current_server(self) -> str | None:
         """Get the name of the currently connected server."""
         return self.current_server
 
     async def connect_to_server(
         self,
-        server_name: Optional[str] = None,
-        server_command: Optional[str] = None,
-        server_args: Optional[List[str]] = None,
-        server_env: Optional[Dict[str, str]] = None,
-    ) -> List[Dict[str, Any]]:
+        server_name: str | None = None,
+        server_command: str | None = None,
+        server_args: list[str] | None = None,
+        server_env: dict[str, str] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Connect to an MCP server and return available tools.
 
@@ -159,7 +159,7 @@ class SimpleMCPClient:
             await self.cleanup()
             raise RuntimeError(f"Failed to connect to MCP server: {e}") from e
 
-    async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+    async def execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
         """
         Execute a tool on the connected MCP server.
 
@@ -219,7 +219,7 @@ class SimpleMCPClient:
 async def execute_mcp_tool(
     server_name: str,
     tool_name: str,
-    arguments: Dict[str, Any],
+    arguments: dict[str, Any],
     config_path: str = "mcp_config.json",
 ) -> str:
     """
@@ -241,7 +241,7 @@ async def execute_mcp_tool(
 
 async def list_mcp_tools(
     server_name: str, config_path: str = "mcp_config.json"
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Convenience function to list available tools from an MCP server.
 

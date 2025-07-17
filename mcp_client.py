@@ -9,13 +9,13 @@ and managing tool execution.
 import json
 import logging
 from contextlib import AsyncExitStack
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from config import MCPConfig
-from llm_providers import BaseLLMProvider, LLMMessage, AnthropicProvider
+from llm_providers import AnthropicProvider, BaseLLMProvider, LLMMessage
 
 
 class MCPClient:
@@ -23,10 +23,10 @@ class MCPClient:
 
     def __init__(self, config: MCPConfig, verbose: bool = False):
         self.config = config
-        self.session: Optional[ClientSession] = None
-        self.available_tools: List[Dict[str, Any]] = []
+        self.session: ClientSession | None = None
+        self.available_tools: list[dict[str, Any]] = []
         self.exit_stack = AsyncExitStack()
-        self.current_server: Optional[str] = None
+        self.current_server: str | None = None
         self.verbose = verbose
 
         # Set up logging
@@ -37,19 +37,19 @@ class MCPClient:
             self.logger = logging.getLogger(__name__)
             self.logger.setLevel(logging.WARNING)
 
-    def list_servers(self) -> List[str]:
+    def list_servers(self) -> list[str]:
         """List all configured servers."""
         return list(self.config.servers.keys())
 
-    def get_server_info(self, server_name: str) -> Dict[str, Any]:
+    def get_server_info(self, server_name: str) -> dict[str, Any]:
         """Get information about a specific server."""
         return self.config.servers.get(server_name, {})
 
     async def connect_to_server(
         self,
-        server_name: Optional[str] = None,
-        server_command: Optional[str] = None,
-        server_args: Optional[List[str]] = None,
+        server_name: str | None = None,
+        server_command: str | None = None,
+        server_args: list[str] | None = None,
     ) -> None:
         """Connect to an MCP server via stdio (from config or direct params)."""
 
@@ -116,7 +116,7 @@ class MCPClient:
 
         print(f"Connected! Available tools: {[t['name'] for t in self.available_tools]}")
 
-    async def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> str:
+    async def execute_tool(self, tool_name: str, tool_input: dict[str, Any]) -> str:
         """Execute a tool and return the result."""
         if not self.session:
             raise RuntimeError("Not connected to MCP server")
@@ -165,9 +165,9 @@ class QueryProcessor:
             provider_tools.append(self.llm_provider.format_tool_for_provider(tool))
 
         # Add system context about MCP
-        system_context = """You are an AI assistant with access to MCP (Model Context Protocol) tools. 
-MCP allows you to use external tools and functions to help users. When users mention "MCP" or "using MCP", 
-they're referring to these external tools you have access to. You should use the appropriate tools 
+        system_context = """You are an AI assistant with access to MCP (Model Context Protocol) tools.
+MCP allows you to use external tools and functions to help users. When users mention "MCP" or "using MCP",
+they're referring to these external tools you have access to. You should use the appropriate tools
 to fulfill their requests and explain what you're doing.
 
 Available MCP tools: {tools_list}
@@ -257,7 +257,7 @@ Always use the appropriate MCP tools when they can help fulfill the user's reque
         return "\n".join(final_text) if final_text else "No response generated."
 
     def _format_tool_use_message(
-        self, tool_id: str, tool_name: str, tool_input: Dict[str, Any]
+        self, tool_id: str, tool_name: str, tool_input: dict[str, Any]
     ) -> Any:
         """Format tool use message for the specific provider."""
         if isinstance(self.llm_provider, AnthropicProvider):
