@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "python",
+      "args": ["-m", "mcp_server_filesystem"],
+      "description": "File system operations server"
+    },
+    "git": {
+      "command": "python",
+      "args": ["-m", "mcp_server_git"],
+      "description": "Git operations server"
+    },
+    "web": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-web"],
+      "description": "Web scraping and requests server"
+    },
+    "database": {
+      "command": "python",
+      "args": ["/path/to/database_server.py"],
+      "description": "Database operations server",
+      "env": {
+        "DB_HOST": "localhost",
+        "DB_PORT": "5432",
+        "DB_NAME": "myapp"
+      }
+    }
+  }
+}

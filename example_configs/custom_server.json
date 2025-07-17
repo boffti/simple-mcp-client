@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "my_custom_server": {
+      "command": "./my_server.py",
+      "args": ["--port", "8080", "--config", "server_config.yaml"],
+      "description": "My custom MCP server with specific functionality",
+      "env": {
+        "API_KEY": "sk-your-api-key-here",
+        "ENVIRONMENT": "production",
+        "LOG_LEVEL": "info"
+      }
+    },
+    "node_server": {
+      "command": "node",
+      "args": ["server.js", "--mcp-mode"],
+      "description": "Node.js based MCP server"
+    }
+  }
+}
