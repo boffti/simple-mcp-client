@@ -8,7 +8,7 @@ This is a separate application that uses the SimpleMCPClient for easy testing an
 
 Usage:
     python interactive_cli.py
-    
+
 Features:
 - Auto-detect LLM providers from environment
 - Interactive chat with MCP tool execution

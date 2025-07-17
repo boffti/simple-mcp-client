@@ -1,0 +1,311 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  pr-validation:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create virtual environment
+      run: uv venv
+
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+        uv pip install -e ".[all]"
+
+    - name: Check PR title format
+      run: |
+        echo "PR Title: ${{ github.event.pull_request.title }}"
+        # Allow common prefixes for PR titles
+        if [[ "${{ github.event.pull_request.title }}" =~ ^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert)(\(.+\))?: ]]; then
+          echo "✅ PR title format is valid"
+        else
+          echo "❌ PR title should start with a conventional commit type (feat, fix, docs, etc.)"
+          echo "Example: 'feat: add new MCP client functionality'"
+          exit 1
+        fi
+
+    - name: Check for breaking changes
+      run: |
+        # Check if PR contains breaking changes in title or description
+        if [[ "${{ github.event.pull_request.title }}" =~ BREAKING ]] || [[ "${{ github.event.pull_request.body }}" =~ BREAKING ]]; then
+          echo "⚠️  BREAKING CHANGES detected in PR"
+          echo "Make sure to update version accordingly and document changes"
+        fi
+
+    - name: Fast lint check
+      run: |
+        uv run ruff check . --select E,W,F --output-format=github
+
+    - name: Fast type check
+      run: |
+        uv run mypy simple_mcp_client.py --ignore-missing-imports --no-strict-optional
+
+    - name: Check for TODO/FIXME comments
+      run: |
+        echo "Checking for TODO/FIXME comments..."
+        if grep -r "TODO\|FIXME" --include="*.py" .; then
+          echo "⚠️  Found TODO/FIXME comments. Consider addressing them before merging."
+        else
+          echo "✅ No TODO/FIXME comments found"
+        fi
+
+    - name: Check file sizes
+      run: |
+        echo "Checking for large files..."
+        find . -type f -size +1M -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.venv/*" | while read file; do
+          echo "⚠️  Large file found: $file ($(du -h "$file" | cut -f1))"
+        done
+
+    - name: Run quick tests
+      run: |
+        uv run pytest tests/ -v --tb=short -x --maxfail=5
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Check for dependency changes
+      run: |
+        if git diff --name-only origin/main...HEAD | grep -q "pyproject.toml\|requirements"; then
+          echo "📦 Dependencies changed, running additional checks..."
+          
+          # Create virtual environment and install
+          uv venv
+          uv pip install -e ".[dev]"
+          uv pip install -e ".[all]"
+          
+          # Check for vulnerabilities
+          uv pip install safety
+          uv run safety check || echo "⚠️  Security vulnerabilities found"
+          
+          # Check for license compatibility
+          uv pip install pip-licenses
+          uv run pip-licenses --format=csv --output-file=licenses.csv
+          echo "📋 License report generated"
+          
+        else
+          echo "✅ No dependency changes detected"
+        fi
+
+    - name: Upload dependency reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-reports
+        path: |
+          licenses.csv
+
+  documentation-check:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check README updates
+      run: |
+        if git diff --name-only origin/main...HEAD | grep -q "simple_mcp_client.py\|config.py\|llm_providers.py"; then
+          if ! git diff --name-only origin/main...HEAD | grep -q "README.md"; then
+            echo "⚠️  Code changes detected but README.md not updated"
+            echo "Consider updating documentation if public API changed"
+          fi
+        fi
+
+    - name: Check for docstring coverage
+      run: |
+        python -c "
+        import ast
+        import os
+        
+        def check_docstrings(filename):
+            with open(filename, 'r') as f:
+                tree = ast.parse(f.read())
+            
+            functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
+            classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
+            
+            missing_docs = []
+            for item in functions + classes:
+                if not ast.get_docstring(item) and not item.name.startswith('_'):
+                    missing_docs.append(f'{filename}:{item.lineno} - {item.name}')
+            
+            return missing_docs
+        
+        files_to_check = ['simple_mcp_client.py', 'config.py', 'llm_providers.py', 'mcp_client.py']
+        all_missing = []
+        
+        for file in files_to_check:
+            if os.path.exists(file):
+                missing = check_docstrings(file)
+                all_missing.extend(missing)
+        
+        if all_missing:
+            print('⚠️  Missing docstrings:')
+            for item in all_missing:
+                print(f'  - {item}')
+        else:
+            print('✅ All public functions and classes have docstrings')
+        "
+
+  performance-check:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create virtual environment
+      run: uv venv
+
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+        uv pip install -e ".[all]"
+        uv pip install memory-profiler
+
+    - name: Run performance benchmarks
+      run: |
+        echo "🚀 Running basic performance checks..."
+        
+        # Basic import time check
+        python -c "
+        import time
+        start = time.time()
+        from simple_mcp_client import SimpleMCPClient
+        end = time.time()
+        print(f'SimpleMCPClient import time: {(end - start) * 1000:.2f}ms')
+        
+        start = time.time()
+        from config import load_mcp_config, load_llm_config
+        end = time.time()
+        print(f'Config import time: {(end - start) * 1000:.2f}ms')
+        
+        start = time.time()
+        from llm_providers import create_llm_provider, LLMProvider
+        end = time.time()
+        print(f'LLM providers import time: {(end - start) * 1000:.2f}ms')
+        "
+
+    - name: Check memory usage
+      run: |
+        echo "📊 Checking memory usage..."
+        python -c "
+        import psutil
+        import os
+        
+        # Get current process
+        process = psutil.Process(os.getpid())
+        
+        # Baseline memory
+        baseline = process.memory_info().rss / 1024 / 1024  # MB
+        
+        # Import modules
+        from simple_mcp_client import SimpleMCPClient
+        from config import load_mcp_config, load_llm_config
+        from llm_providers import create_llm_provider, LLMProvider
+        
+        # Memory after imports
+        after_imports = process.memory_info().rss / 1024 / 1024  # MB
+        
+        print(f'Memory usage - Baseline: {baseline:.2f}MB')
+        print(f'Memory usage - After imports: {after_imports:.2f}MB')
+        print(f'Memory overhead: {after_imports - baseline:.2f}MB')
+        
+        if after_imports - baseline > 50:  # 50MB threshold
+            print('⚠️  High memory overhead detected')
+        else:
+            print('✅ Memory usage within acceptable limits')
+        "
+
+  auto-format:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create virtual environment
+      run: uv venv
+
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+
+    - name: Check if auto-formatting is needed
+      run: |
+        uv run ruff format --check . || {
+          echo "🔧 Code formatting needed"
+          echo "format_needed=true" >> $GITHUB_ENV
+        }
+
+    - name: Auto-format code
+      if: env.format_needed == 'true'
+      run: |
+        uv run ruff format .
+        uv run ruff check . --fix --select I
+
+    - name: Check for changes
+      if: env.format_needed == 'true'
+      run: |
+        if git diff --quiet; then
+          echo "✅ No formatting changes needed"
+        else
+          echo "🔧 Formatting changes applied"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git commit -m "style: auto-format code with ruff" || exit 0
+        fi
+
+    - name: Push changes
+      if: env.format_needed == 'true'
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.head_ref }}

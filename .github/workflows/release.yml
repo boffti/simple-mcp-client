@@ -1,0 +1,211 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        default: '0.1.0'
+
+jobs:
+  test-before-release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create virtual environment
+      run: uv venv
+
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+        uv pip install -e ".[all]"
+
+    - name: Run full test suite
+      run: |
+        uv run pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
+
+    - name: Verify package integrity
+      run: |
+        uv run python -c "
+        from simple_mcp_client import SimpleMCPClient
+        from config import load_mcp_config, load_llm_config
+        from llm_providers import create_llm_provider, LLMProvider
+        print('✅ All imports successful')
+        "
+
+  build-package:
+    runs-on: ubuntu-latest
+    needs: test-before-release
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Install build tools
+      run: |
+        uv pip install build twine
+
+    - name: Build package
+      run: |
+        python -m build
+
+    - name: Check package
+      run: |
+        python -m twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: package-dist
+        path: dist/
+
+  publish-to-pypi:
+    runs-on: ubuntu-latest
+    needs: build-package
+    if: github.event_name == 'release' && github.event.action == 'published'
+    environment: release
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: package-dist
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
+
+  create-github-release:
+    runs-on: ubuntu-latest
+    needs: build-package
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: package-dist
+        path: dist/
+
+    - name: Generate release notes
+      run: |
+        echo "## Changes in v${{ github.event.inputs.version }}" > release_notes.md
+        echo "" >> release_notes.md
+        echo "### Features" >> release_notes.md
+        echo "- Improved MCP client functionality" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Bug Fixes" >> release_notes.md
+        echo "- Various bug fixes and improvements" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Documentation" >> release_notes.md
+        echo "- Updated README and examples" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Installation" >> release_notes.md
+        echo "\`\`\`bash" >> release_notes.md
+        echo "pip install simple-mcp-client==${{ github.event.inputs.version }}" >> release_notes.md
+        echo "\`\`\`" >> release_notes.md
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.event.inputs.version }}
+        release_name: Release v${{ github.event.inputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+
+  update-documentation:
+    runs-on: ubuntu-latest
+    needs: publish-to-pypi
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create virtual environment
+      run: uv venv
+
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+        uv pip install -e ".[all]"
+
+    - name: Generate API documentation
+      run: |
+        mkdir -p docs/api
+        uv run python -c "
+        import inspect
+        from simple_mcp_client import SimpleMCPClient
+        from config import load_mcp_config, load_llm_config
+        from llm_providers import create_llm_provider, LLMProvider
+        
+        # Generate simple API docs
+        with open('docs/api/simple_mcp_client.md', 'w') as f:
+            f.write('# SimpleMCPClient API\\n\\n')
+            f.write('## Classes\\n\\n')
+            f.write('### SimpleMCPClient\\n\\n')
+            f.write(inspect.getdoc(SimpleMCPClient) or 'No documentation available')
+            f.write('\\n\\n')
+            
+            for name, method in inspect.getmembers(SimpleMCPClient, predicate=inspect.ismethod):
+                if not name.startswith('_'):
+                    f.write(f'#### {name}\\n\\n')
+                    f.write(inspect.getdoc(method) or 'No documentation available')
+                    f.write('\\n\\n')
+        
+        print('✅ API documentation generated')
+        "
+
+    - name: Update version badge
+      run: |
+        VERSION=$(grep "version = " pyproject.toml | cut -d'"' -f2)
+        echo "Latest version: $VERSION"
+        # This could update badges in README if needed
+
+  notify-release:
+    runs-on: ubuntu-latest
+    needs: [publish-to-pypi, update-documentation]
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+    - name: Notify about release
+      run: |
+        echo "🎉 Release ${{ github.event.release.tag_name }} has been published!"
+        echo "📦 Package is available on PyPI"
+        echo "📚 Documentation has been updated"
+        echo "🔗 Release URL: ${{ github.event.release.html_url }}"

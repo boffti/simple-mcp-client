@@ -195,7 +195,7 @@ async def example_batch_operations():
         if tasks:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
-                print(f"Task {i+1}: {result}")
+                print(f"Task {i + 1}: {result}")
 
     finally:
         await service.cleanup()

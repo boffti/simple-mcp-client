@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create virtual environment
+      run: uv venv
+
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+        uv pip install -e ".[all]"
+
+    - name: Lint with ruff
+      run: |
+        uv run ruff check . --output-format=github
+        uv run ruff format --check .
+
+    - name: Type check with mypy
+      run: |
+        uv run mypy simple_mcp_client.py config.py llm_providers.py mcp_client.py
+
+    - name: Test with pytest
+      run: |
+        uv run pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Archive coverage reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-report-${{ matrix.python-version }}
+        path: htmlcov/
+
+  test-examples:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create virtual environment
+      run: uv venv
+
+    - name: Install dependencies
+      run: |
+        uv pip install -e ".[dev]"
+        uv pip install -e ".[all]"
+
+    - name: Check examples syntax
+      run: |
+        python -m py_compile examples/basic_usage.py
+        python -m py_compile examples/web_app_integration.py
+        python -m py_compile examples/ai_agent_integration.py
+        python -m py_compile interactive_cli.py
+
+    - name: Test import functionality
+      run: |
+        python -c "from simple_mcp_client import SimpleMCPClient; print('SimpleMCPClient import successful')"
+        python -c "from config import load_mcp_config, load_llm_config; print('Config import successful')"
+        python -c "from llm_providers import create_llm_provider, LLMProvider; print('LLM providers import successful')"
+
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create virtual environment
+      run: uv venv
+
+    - name: Install security tools
+      run: |
+        uv pip install bandit safety
+
+    - name: Run security checks with bandit
+      run: |
+        uv run bandit -r . -f json -o bandit-report.json || true
+        uv run bandit -r . -f txt
+
+    - name: Check for known security vulnerabilities
+      run: |
+        uv run safety check --json --output safety-report.json || true
+        uv run safety check
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json

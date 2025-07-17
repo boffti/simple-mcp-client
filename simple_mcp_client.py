@@ -8,7 +8,7 @@ without any CLI dependencies.
 
 Usage:
     from simple_mcp_client import SimpleMCPClient
-    
+
     client = SimpleMCPClient()
     await client.connect_to_server("filesystem")
     result = await client.execute_tool("read_file", {"path": "example.txt"})
