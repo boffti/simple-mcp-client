@@ -67,14 +67,14 @@ class InteractiveMCPCLI:
             # Connect to server
             tools = await self.mcp_client.connect_to_server(server_name)
 
-            print(f"Connected to server: {self.mcp_client.get_current_server()}")
+            print(f"Connected to MCP Server: {self.mcp_client.get_current_server()}")
             print(f"Available tools: {[tool['name'] for tool in tools]}")
 
             # Create query processor with the MCP client's internal client
             from mcp_client import MCPClient
 
             mcp_internal_client = MCPClient(self.mcp_client.config, verbose=self.verbose)
-            mcp_internal_client.session = self.mcp_client.session
+            mcp_internal_client.client = self.mcp_client.client
             mcp_internal_client.available_tools = self.mcp_client.available_tools
             mcp_internal_client.current_server = self.mcp_client.current_server
 
@@ -85,7 +85,7 @@ class InteractiveMCPCLI:
             return True
 
         except Exception as e:
-            print(f"Failed to connect to server: {e}")
+            print(f"Failed to connect to MCP server: {e}")
             return False
 
     async def run_interactive_session(self) -> None:
@@ -94,8 +94,8 @@ class InteractiveMCPCLI:
         print(f"Interactive MCP CLI ({self.llm_config.provider})")
         print("=" * 60)
         print("Type 'quit', 'exit', or 'q' to exit")
-        print("Type 'help' for available commands")
-        print("Type 'tools' to list available MCP tools")
+        print("Type '/help' for available commands")
+        print("Type '/tools' to list available MCP tools")
         print("=" * 60)
 
         while True:
@@ -110,24 +110,24 @@ class InteractiveMCPCLI:
                     continue
 
                 # Handle special commands
-                if query.lower() == "help":
+                if query.lower() == "/help":
                     self._show_help()
                     continue
 
-                if query.lower() == "tools":
+                if query.lower() == "/tools":
                     self._show_tools()
                     continue
 
-                if query.lower() == "status":
+                if query.lower() == "/status":
                     self._show_status()
                     continue
 
-                if query.lower().startswith("switch "):
-                    server_name = query[7:].strip()
+                if query.lower().startswith("/switch "):
+                    server_name = query[8:].strip()
                     if await self.connect_to_server(server_name):
                         continue
                     else:
-                        print(f"❌ Failed to switch to server: {server_name}")
+                        print(f"❌ Failed to switch to MCP server: {server_name}")
                         continue
 
                 # Process query with LLM and MCP tools
@@ -137,7 +137,7 @@ class InteractiveMCPCLI:
                     response = await self.query_processor.process_query(query)
                     print(f"\n✅ Response: {response}")
                 else:
-                    print("❌ No query processor available. Please connect to a server first.")
+                    print("❌ No query processor available. Please connect to an MCP server first.")
 
             except KeyboardInterrupt:
                 print("\n\n👋 Goodbye!")
@@ -153,11 +153,11 @@ class InteractiveMCPCLI:
     def _show_help(self) -> None:
         """Show help information."""
         print("\n📖 Available Commands:")
-        print("  help         - Show this help message")
-        print("  tools        - List available MCP tools")
-        print("  status       - Show connection status")
-        print("  switch <name> - Switch to a different server")
-        print("  quit/exit/q  - Exit the CLI")
+        print("  /help         - Show this help message")
+        print("  /tools        - List available MCP tools")
+        print("  /status       - Show connection status")
+        print("  /switch <name> - Switch to a different MCP server")
+        print("  quit/exit/q   - Exit the CLI")
         print("\n💡 Tips:")
         print("  - Ask questions and the LLM will use MCP tools to help")
         print("  - Use natural language to interact with your MCP tools")
@@ -166,7 +166,7 @@ class InteractiveMCPCLI:
     def _show_tools(self) -> None:
         """Show available MCP tools."""
         if not self.mcp_client.is_connected():
-            print("❌ Not connected to any server")
+            print("❌ Not connected to any MCP server")
             return
 
         tools = self.mcp_client.get_available_tools()
@@ -185,8 +185,8 @@ class InteractiveMCPCLI:
         print(f"  Model: {self.llm_config.model}")
         print(f"  Max Tokens: {self.llm_config.max_tokens}")
         print(f"  Connected: {self.mcp_client.is_connected()}")
-        print(f"  Current Server: {self.mcp_client.get_current_server()}")
-        print(f"  Available Servers: {self.mcp_client.list_servers()}")
+        print(f"  Current MCP Server: {self.mcp_client.get_current_server()}")
+        print(f"  Available MCP Servers: {self.mcp_client.list_servers()}")
         print(f"  Available Tools: {len(self.mcp_client.get_available_tools())}")
 
 
@@ -230,11 +230,11 @@ async def main() -> None:
         print("📝 Please configure at least one server to continue")
         return
 
-    print(f"📡 Available servers: {servers}")
+    print(f"📡 Available MCP servers: {servers}")
 
     # Connect to first server
     if not await cli.connect_to_server():
-        print("❌ Failed to connect to any server")
+        print("❌ Failed to connect to any MCP server")
         return
 
     # Run interactive session

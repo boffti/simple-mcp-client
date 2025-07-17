@@ -4,7 +4,7 @@ Simple MCP Client
 
 A clean, minimal MCP client for easy integration into any application.
 This client handles MCP server connections, tool discovery, and execution
-without any CLI dependencies.
+without any CLI dependencies, built on FastMCP v2.
 
 Usage:
     from simple_mcp_client import SimpleMCPClient
@@ -14,18 +14,16 @@ Usage:
     result = await client.execute_tool("read_file", {"path": "example.txt"})
 """
 
-from contextlib import AsyncExitStack
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from fastmcp import Client
 
 from config import MCPConfig, load_mcp_config
 
 
 class SimpleMCPClient:
     """
-    A minimal MCP client for easy integration into applications.
+    A minimal MCP client for easy integration into applications using FastMCP v2.
 
     This client focuses solely on MCP functionality:
     - Connect to MCP servers
@@ -43,9 +41,8 @@ class SimpleMCPClient:
             config: Optional MCPConfig object (overrides config_path)
         """
         self.config = config or load_mcp_config(config_path)
-        self.session: ClientSession | None = None
+        self.client: Client | None = None
         self.available_tools: list[dict[str, Any]] = []
-        self.exit_stack = AsyncExitStack()
         self.current_server: str | None = None
 
     def list_servers(self) -> list[str]:
@@ -62,7 +59,7 @@ class SimpleMCPClient:
 
     def is_connected(self) -> bool:
         """Check if client is connected to a server."""
-        return self.session is not None
+        return self.client is not None and self.client.is_connected()
 
     def get_current_server(self) -> str | None:
         """Get the name of the currently connected server."""
@@ -92,7 +89,7 @@ class SimpleMCPClient:
             RuntimeError: If connection fails
         """
         # Disconnect from current server if connected
-        if self.session:
+        if self.client:
             await self.cleanup()
 
         # Determine connection parameters
@@ -125,26 +122,25 @@ class SimpleMCPClient:
             return await self.connect_to_server(server_name=first_server)
 
         try:
-            # Create server parameters
-            server_params = StdioServerParameters(command=command, args=args, env=env)
+            # Create FastMCP v2 client 
+            # For single server connections, connect directly
+            if len(args) == 1 and args[0].endswith('.py'):
+                # Script file - FastMCP can infer stdio transport
+                self.client = Client(args[0], env=env)
+            else:
+                # Use transport config for complex setups
+                from fastmcp.client.transports import StdioTransport
+                transport = StdioTransport(command=command, args=args, env=env or {})
+                self.client = Client(transport)
 
-            # Connect to server
-            stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
-            read_stream, write_stream = stdio_transport
-
-            # Create session
-            self.session = await self.exit_stack.enter_async_context(
-                ClientSession(read_stream, write_stream)
-            )
-
-            # Initialize session
-            await self.session.initialize()
+            # Connect and initialize
+            await self.client.__aenter__()
 
             # Discover available tools
-            tools_response = await self.session.list_tools()
+            tools = await self.client.list_tools()
             self.available_tools = []
 
-            for tool in tools_response.tools:
+            for tool in tools:
                 tool_def = {
                     "name": tool.name,
                     "description": tool.description,
@@ -173,7 +169,7 @@ class SimpleMCPClient:
         Raises:
             RuntimeError: If not connected or tool execution fails
         """
-        if not self.session:
+        if not self.client or not self.is_connected():
             raise RuntimeError("Not connected to MCP server. Call connect_to_server() first.")
 
         # Validate tool exists
@@ -182,27 +178,28 @@ class SimpleMCPClient:
             raise ValueError(f"Tool '{tool_name}' not found. Available tools: {tool_names}")
 
         try:
-            # Execute tool
-            result = await self.session.call_tool(tool_name, arguments)
+            # Execute tool using FastMCP v2 API
+            result = await self.client.call_tool(tool_name, arguments)
 
-            # Extract and return result
-            output_parts = []
-            for content in result.content:
-                if hasattr(content, "text"):
-                    output_parts.append(content.text)
-                else:
-                    output_parts.append(str(content))
-
-            return "\n".join(output_parts)
+            # FastMCP v2 returns result with .text or .data attributes
+            if hasattr(result, "text"):
+                return result.text
+            elif hasattr(result, "data"):
+                return str(result.data)
+            else:
+                return str(result)
 
         except Exception as e:
             raise RuntimeError(f"Tool execution failed: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up resources and disconnect from server."""
-        if self.exit_stack:
-            await self.exit_stack.aclose()
-        self.session = None
+        if self.client:
+            try:
+                await self.client.__aexit__(None, None, None)
+            except Exception:
+                pass  # Ignore cleanup errors
+            self.client = None
         self.available_tools = []
         self.current_server = None
 

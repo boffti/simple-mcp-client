@@ -36,12 +36,21 @@ class LLMConfig:
 
 @dataclass
 class MCPConfig:
-    """MCP configuration structure."""
+    """MCP configuration structure for FastMCP v2 compatibility."""
 
     servers: dict[str, dict[str, Any]] = field(default_factory=dict)
+    mcpServers: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        pass
+        # Support both 'servers' and 'mcpServers' formats for FastMCP v2 compatibility
+        if self.mcpServers and not self.servers:
+            self.servers = self.mcpServers
+        elif self.servers and not self.mcpServers:
+            self.mcpServers = self.servers
+
+    def to_fastmcp_config(self) -> dict[str, Any]:
+        """Convert to FastMCP v2 configuration format."""
+        return {"mcpServers": self.mcpServers or self.servers}
 
 
 def load_llm_config(config_path: str = "llm_config.json") -> LLMConfig:
@@ -62,19 +71,27 @@ def load_llm_config(config_path: str = "llm_config.json") -> LLMConfig:
 
 
 def load_mcp_config(config_path: str = "mcp_config.json") -> MCPConfig:
-    """Load MCP configuration from JSON file."""
+    """Load MCP configuration from JSON file with FastMCP v2 support."""
     try:
         with open(config_path) as f:
             config_data = json.load(f)
-            # Support both old and new format for backward compatibility
+
+            # Support both formats for backward and forward compatibility
+            servers = {}
+            mcp_servers = {}
+
             if "servers" in config_data:
                 servers = config_data["servers"]
-            elif "mcpServers" in config_data:
-                servers = config_data["mcpServers"]
-            else:
-                servers = {}
+            if "mcpServers" in config_data:
+                mcp_servers = config_data["mcpServers"]
 
-            return MCPConfig(servers=servers)
+            # If only one format is present, use it for both
+            if servers and not mcp_servers:
+                mcp_servers = servers
+            elif mcp_servers and not servers:
+                servers = mcp_servers
+
+            return MCPConfig(servers=servers, mcpServers=mcp_servers)
     except FileNotFoundError:
         print(f"MCP config file {config_path} not found. Using default configuration.")
         return MCPConfig()

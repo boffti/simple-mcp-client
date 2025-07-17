@@ -3,29 +3,26 @@ MCP Client Module
 ================
 
 This module contains the MCP client implementation for connecting to MCP servers
-and managing tool execution.
+and managing tool execution using FastMCP v2.
 """
 
 import json
 import logging
-from contextlib import AsyncExitStack
 from typing import Any
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from fastmcp import Client
 
 from config import MCPConfig
 from llm_providers import AnthropicProvider, BaseLLMProvider, LLMMessage
 
 
 class MCPClient:
-    """MCP client for connecting to servers and executing tools."""
+    """MCP client for connecting to servers and executing tools using FastMCP v2."""
 
     def __init__(self, config: MCPConfig, verbose: bool = False):
         self.config = config
-        self.session: ClientSession | None = None
+        self.client: Client | None = None
         self.available_tools: list[dict[str, Any]] = []
-        self.exit_stack = AsyncExitStack()
         self.current_server: str | None = None
         self.verbose = verbose
 
@@ -87,26 +84,24 @@ class MCPClient:
             await self.connect_to_server(server_name=first_server)
             return
 
-        # Create server parameters
-        server_params = StdioServerParameters(command=command, args=args, env=env)
+        # Create FastMCP v2 client
+        if len(args) == 1 and args[0].endswith('.py'):
+            # Script file - FastMCP can infer stdio transport
+            self.client = Client(args[0], env=env)
+        else:
+            # Use transport config for complex setups
+            from fastmcp.client.transports import StdioTransport
+            transport = StdioTransport(command=command, args=args, env=env or {})
+            self.client = Client(transport)
 
-        # Connect to server
-        stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
-        read_stream, write_stream = stdio_transport
-
-        # Create session
-        self.session = await self.exit_stack.enter_async_context(
-            ClientSession(read_stream, write_stream)
-        )
-
-        # Initialize session
-        await self.session.initialize()
+        # Connect and initialize
+        await self.client.__aenter__()
 
         # Discover available tools
-        tools_response = await self.session.list_tools()
+        tools = await self.client.list_tools()
         self.available_tools = []
 
-        for tool in tools_response.tools:
+        for tool in tools:
             tool_def = {
                 "name": tool.name,
                 "description": tool.description,
@@ -118,30 +113,33 @@ class MCPClient:
 
     async def execute_tool(self, tool_name: str, tool_input: dict[str, Any]) -> str:
         """Execute a tool and return the result."""
-        if not self.session:
+        if not self.client:
             raise RuntimeError("Not connected to MCP server")
 
         if self.verbose:
             self.logger.debug(f"MCP Tool Call: {tool_name} with args: {tool_input}")
 
-        tool_result = await self.session.call_tool(tool_name, tool_input)
+        tool_result = await self.client.call_tool(tool_name, tool_input)
 
         if self.verbose:
             self.logger.debug(f"MCP Tool Result: {tool_result}")
 
-        # Extract tool output
-        tool_output = []
-        for result_content in tool_result.content:
-            if hasattr(result_content, "text"):
-                tool_output.append(result_content.text)
-            else:
-                tool_output.append(str(result_content))
-
-        return "\n".join(tool_output)
+        # FastMCP v2 returns result with .text or .data attributes
+        if hasattr(tool_result, "text"):
+            return tool_result.text
+        elif hasattr(tool_result, "data"):
+            return str(tool_result.data)
+        else:
+            return str(tool_result)
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        await self.exit_stack.aclose()
+        if self.client:
+            try:
+                await self.client.__aexit__(None, None, None)
+            except Exception:
+                pass  # Ignore cleanup errors
+            self.client = None
 
 
 class QueryProcessor:
@@ -156,7 +154,7 @@ class QueryProcessor:
 
     async def process_query(self, user_query: str) -> str:
         """Process a user query, potentially using MCP tools."""
-        if not self.mcp_client.session:
+        if not self.mcp_client.client:
             raise RuntimeError("Not connected to MCP server")
 
         # Prepare tools for the LLM provider
