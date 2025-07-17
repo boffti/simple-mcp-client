@@ -34,14 +34,16 @@ async def example():
 
 ```
 simple-mcp-client/
-├── simple_mcp_client.py    # 🎯 Main MCP client (for developers)
-├── interactive_cli.py      # 🖥️ Interactive CLI (for testing)
-├── llm_providers.py        # 🧠 LLM provider implementations
-├── config.py               # ⚙️ Configuration management
-├── mcp_client.py           # 🔧 Internal MCP client components
-├── mcp_config.json         # 📡 MCP server configuration
-├── llm_config.json         # 🤖 LLM provider configuration
-└── examples/               # 📚 Integration examples
+├── simple_mcp_client.py      # 🎯 Main MCP client (for developers)
+├── interactive_cli.py        # 🖥️ Interactive CLI (for testing)
+├── llm_providers.py          # 🧠 LLM provider implementations
+├── config.py                 # ⚙️ Configuration management
+├── mcp_client.py             # 🔧 Internal MCP client components
+├── mcp_config_example.json   # 📡 MCP server configuration template
+├── mcp_config.json           # 📡 Your local MCP config (gitignored)
+├── llm_config.json           # 🤖 Your local LLM config (gitignored)
+├── example_configs/          # 📋 Configuration examples
+└── examples/                 # 📚 Integration examples
     ├── basic_usage.py
     ├── web_app_integration.py
     └── ai_agent_integration.py
@@ -226,7 +228,25 @@ python interactive_cli.py
 
 ## ⚙️ Configuration
 
+### Initial Setup
+
+**Important**: Configuration files containing sensitive information are not included in the repository for security reasons.
+
+1. **Copy the example configuration**:
+   ```bash
+   cp mcp_config_example.json mcp_config.json
+   ```
+
+2. **Edit your local configuration**:
+   - Replace placeholder paths with your actual project paths
+   - Update database connection strings with your credentials
+   - Modify server commands as needed for your environment
+
+3. **Your `mcp_config.json` is gitignored** to prevent accidentally committing sensitive information.
+
 ### MCP Server Configuration (`mcp_config.json`)
+
+Create your local `mcp_config.json` based on `mcp_config_example.json`:
 
 ```json
 {
@@ -243,12 +263,23 @@ python interactive_cli.py
       "command": "npx",
       "args": ["-y", "@anthropic/mcp-server-web"],
       "description": "Web scraping and requests"
+    },
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://username:password@localhost:5432/database_name"
+      ],
+      "description": "PostgreSQL database server"
     }
   }
 }
 ```
 
 ### LLM Configuration (`llm_config.json`) - CLI Only
+
+Similarly, create your local `llm_config.json` (also gitignored):
 
 ```json
 {
@@ -258,6 +289,16 @@ python interactive_cli.py
   "options": {}
 }
 ```
+
+### Security Notes
+
+⚠️ **Never commit configuration files containing**:
+- API keys or tokens
+- Database credentials
+- Absolute file paths with personal information
+- Any sensitive environment variables
+
+The example files provide safe templates you can customize locally.
 
 ## 📚 Integration Examples
 
