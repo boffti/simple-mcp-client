@@ -1,0 +1,6 @@
+{
+  "provider": "openrouter",
+  "model": "anthropic/claude-3.5-sonnet",
+  "max_tokens": 1000,
+  "options": {}
+}
