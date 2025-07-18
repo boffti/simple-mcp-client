@@ -43,11 +43,13 @@ class InteractiveMCPCLI:
         llm_config: LLMConfig,
         api_key: str,
         verbose: bool = False,
+        max_iterations: int = 5,
     ):
         self.mcp_client = mcp_client
         self.llm_config = llm_config
         self.api_key = api_key
         self.verbose = verbose
+        self.max_iterations = max_iterations
 
         # Create LLM provider
         provider_enum = LLMProvider(llm_config.provider)
@@ -72,15 +74,15 @@ class InteractiveMCPCLI:
             else:
                 # Connect to all servers
                 server_tools = await self.mcp_client.connect_to_all_servers()
-                
+
                 print("Connected to MCP Servers:")
                 for server, tools in server_tools.items():
                     if tools:  # Only show servers with tools
-                        tool_names = [tool['name'] for tool in tools]
+                        tool_names = [tool["name"] for tool in tools]
                         print(f"  • {server}: {tool_names}")
                     else:
                         print(f"  • {server}: (connection failed)")
-                
+
                 all_tools = self.mcp_client.get_available_tools()
                 print(f"\nTotal available tools: {len(all_tools)}")
 
@@ -88,7 +90,10 @@ class InteractiveMCPCLI:
             from mcp_client import MultiServerQueryProcessor
 
             self.query_processor = MultiServerQueryProcessor(
-                self.mcp_client, self.llm_provider, max_tokens=self.llm_config.max_tokens, verbose=self.verbose
+                self.mcp_client,
+                self.llm_provider,
+                max_tokens=self.llm_config.max_tokens,
+                verbose=self.verbose,
             )
 
             return True
@@ -130,12 +135,16 @@ class InteractiveMCPCLI:
                 if query.lower() == "/status":
                     self._show_status()
                     continue
-                
+
                 if query.lower() == "/servers":
                     servers = self.mcp_client.list_servers()
                     print("📡 Available servers from config:")
                     for server in servers:
-                        status = "✅ Connected" if server in self.mcp_client.connected_servers else "❌ Not connected"
+                        status = (
+                            "✅ Connected"
+                            if server in self.mcp_client.connected_servers
+                            else "❌ Not connected"
+                        )
                         print(f"  • {server}: {status}")
                     continue
 
@@ -151,7 +160,7 @@ class InteractiveMCPCLI:
                         available = self.mcp_client.list_servers()
                         print(f"Available servers: {available}")
                     continue
-                
+
                 if query.lower() == "/reconnect":
                     print("🔄 Reconnecting to all servers...")
                     if await self.connect_to_server():
@@ -164,7 +173,9 @@ class InteractiveMCPCLI:
                 print(f"\n🔄 Processing: {query}")
 
                 if self.query_processor:
-                    response = await self.query_processor.process_query(query)
+                    response = await self.query_processor.process_query(
+                        query, max_iterations=self.max_iterations
+                    )
                     print(f"\n✅ Response: {response}")
                 else:
                     print("❌ No query processor available. Please connect to an MCP server first.")
@@ -193,6 +204,9 @@ class InteractiveMCPCLI:
         print("quit/exit/q - Exit the CLI")
         print("")
         print("💬 Or type any question to interact with the MCP tools via LLM")
+        print(
+            f"🔄 Supports iterative tool calling (max {self.max_iterations} rounds for sequential operations)"
+        )
 
     def _show_tools(self) -> None:
         """Show available tools grouped by server."""
@@ -202,17 +216,17 @@ class InteractiveMCPCLI:
 
         print("🔧 Available MCP Tools:")
         print("-" * 50)
-        
+
         for server_name in self.mcp_client.get_connected_servers():
             tools = self.mcp_client.get_tools_by_server(server_name)
             if tools:
                 print(f"\n📡 Server: {server_name}")
                 for tool in tools:
-                    description = tool.get('description', 'No description')
+                    description = tool.get("description", "No description")
                     print(f"  • {tool['name']}: {description}")
             else:
                 print(f"\n📡 Server: {server_name} (no tools)")
-        
+
         total_tools = len(self.mcp_client.get_available_tools())
         print(f"\nTotal tools available: {total_tools}")
 
@@ -220,19 +234,19 @@ class InteractiveMCPCLI:
         """Show current connection status and server information."""
         print("📊 MCP Client Status:")
         print("-" * 30)
-        
+
         connected_servers = self.mcp_client.get_connected_servers()
         if connected_servers:
             print(f"Connected servers: {len(connected_servers)}")
             for server in connected_servers:
                 tool_count = len(self.mcp_client.get_tools_by_server(server))
                 print(f"  • {server}: {tool_count} tools")
-            
+
             total_tools = len(self.mcp_client.get_available_tools())
             print(f"Total tools: {total_tools}")
         else:
             print("❌ Not connected to any servers")
-        
+
         print(f"LLM Provider: {self.llm_config.provider}")
         print(f"Query Processor: {'✅ Ready' if self.query_processor else '❌ Not initialized'}")
 
@@ -265,7 +279,7 @@ async def main() -> None:
     # Create MCP client
     try:
         mcp_client = SimpleMCPClient()
-        cli = InteractiveMCPCLI(mcp_client, llm_config, api_key, verbose=True)
+        cli = InteractiveMCPCLI(mcp_client, llm_config, api_key, verbose=True, max_iterations=5)
     except Exception as e:
         print(f"❌ Error creating MCP client: {e}")
         return

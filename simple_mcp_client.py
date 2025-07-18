@@ -41,12 +41,12 @@ class SimpleMCPClient:
             config: Optional MCPConfig object (overrides config_path)
         """
         self.config = config or load_mcp_config(config_path)
-        
+
         # Multi-server support
         self.clients: dict[str, Client] = {}
         self.tools_by_server: dict[str, list[dict[str, Any]]] = {}
         self.connected_servers: set[str] = set()
-        
+
         # Backward compatibility - points to first connected server
         self.client: Client | None = None
         self.available_tools: list[dict[str, Any]] = []
@@ -70,7 +70,7 @@ class SimpleMCPClient:
     def get_tools_by_server(self, server_name: str) -> list[dict[str, Any]]:
         """Get tools for a specific server."""
         return self.tools_by_server.get(server_name, [])
-    
+
     def get_connected_servers(self) -> list[str]:
         """Get list of connected server names."""
         return list(self.connected_servers)
@@ -86,84 +86,85 @@ class SimpleMCPClient:
     async def connect_to_all_servers(self) -> dict[str, list[dict[str, Any]]]:
         """
         Connect to all configured MCP servers.
-        
+
         Returns:
             Dictionary mapping server names to their available tools
-            
+
         Raises:
             RuntimeError: If no servers are configured or all connections fail
         """
         if not self.config.servers:
             raise RuntimeError("No servers configured")
-        
+
         results = {}
         successful_connections = 0
-        
+
         for server_name in self.config.servers.keys():
             try:
                 tools = await self._connect_to_single_server(server_name)
                 results[server_name] = tools
                 successful_connections += 1
-                
+
                 # Set backward compatibility properties to first successful connection
                 if successful_connections == 1:
                     self.client = self.clients[server_name]
                     self.current_server = server_name
                     self.available_tools = tools
-                    
+
             except Exception as e:
                 print(f"Warning: Failed to connect to server '{server_name}': {e}")
                 results[server_name] = []
-        
+
         if successful_connections == 0:
             raise RuntimeError("Failed to connect to any MCP servers")
-        
+
         return results
 
     async def _connect_to_single_server(self, server_name: str) -> list[dict[str, Any]]:
         """
         Connect to a single MCP server.
-        
+
         Args:
             server_name: Name of server to connect to
-            
+
         Returns:
             List of available tools from the server
-            
+
         Raises:
             ValueError: If server not found in config
             RuntimeError: If connection fails
         """
         if server_name not in self.config.servers:
             raise ValueError(f"Server '{server_name}' not found in config")
-        
+
         # Disconnect if already connected to this server
         if server_name in self.clients:
             await self._disconnect_from_server(server_name)
-        
+
         server_config = self.config.servers[server_name]
         command = server_config["command"]
         args = server_config["args"]
         env = server_config.get("env", {})
-        
+
         try:
             # Create FastMCP v2 client
-            if len(args) == 1 and args[0].endswith('.py'):
+            if len(args) == 1 and args[0].endswith(".py"):
                 # Script file - FastMCP can infer stdio transport
                 client = Client(args[0], env=env)
             else:
                 # Use transport config for complex setups
                 from fastmcp.client.transports import StdioTransport
+
                 transport = StdioTransport(command=command, args=args, env=env or {})
                 client = Client(transport)
-            
+
             # Connect and initialize
             await client.__aenter__()
-            
+
             # Discover available tools
             tools = await client.list_tools()
             available_tools = []
-            
+
             for tool in tools:
                 tool_def = {
                     "name": tool.name,
@@ -172,14 +173,14 @@ class SimpleMCPClient:
                     "server": server_name,  # Add server info
                 }
                 available_tools.append(tool_def)
-            
+
             # Store connection info
             self.clients[server_name] = client
             self.tools_by_server[server_name] = available_tools
             self.connected_servers.add(server_name)
-            
+
             return available_tools
-            
+
         except Exception as e:
             # Clean up on failure
             if server_name in self.clients:
@@ -207,7 +208,7 @@ class SimpleMCPClient:
     ) -> list[dict[str, Any]]:
         """
         Connect to an MCP server and return available tools.
-        
+
         For multi-server support, use connect_to_all_servers() instead.
 
         Args:
@@ -232,19 +233,21 @@ class SimpleMCPClient:
                 raise ValueError(f"Server '{server_name}' not found in config")
 
             tools = await self._connect_to_single_server(server_name)
-            
+
             # Set backward compatibility properties
             self.client = self.clients[server_name]
             self.current_server = server_name
             self.available_tools = tools
-            
+
             return tools
 
         elif server_command and server_args:
             # Handle direct connection (create temporary server config)
             # This is a more complex case that would need custom handling
             # For now, raise an error to encourage using the config-based approach
-            raise ValueError("Direct server connections not yet supported with multi-server architecture. Please add server to mcp_config.json")
+            raise ValueError(
+                "Direct server connections not yet supported with multi-server architecture. Please add server to mcp_config.json"
+            )
 
         else:
             # Auto-connect to first available server (backward compatibility)
@@ -259,7 +262,7 @@ class SimpleMCPClient:
     async def execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> str:
         """
         Execute a tool on the connected MCP servers.
-        
+
         Searches for the tool across all connected servers and executes it on the first server
         that has the tool. For more control, use execute_tool_on_server().
 
@@ -275,7 +278,9 @@ class SimpleMCPClient:
             ValueError: If tool not found on any server
         """
         if not self.connected_servers:
-            raise RuntimeError("Not connected to any MCP servers. Call connect_to_all_servers() first.")
+            raise RuntimeError(
+                "Not connected to any MCP servers. Call connect_to_all_servers() first."
+            )
 
         # Find which server has this tool
         server_with_tool = None
@@ -283,14 +288,18 @@ class SimpleMCPClient:
             if any(tool["name"] == tool_name for tool in tools):
                 server_with_tool = server_name
                 break
-        
+
         if not server_with_tool:
             available_tools = [tool["name"] for tool in self.get_available_tools()]
-            raise ValueError(f"Tool '{tool_name}' not found on any connected server. Available tools: {available_tools}")
-        
+            raise ValueError(
+                f"Tool '{tool_name}' not found on any connected server. Available tools: {available_tools}"
+            )
+
         return await self.execute_tool_on_server(server_with_tool, tool_name, arguments)
 
-    async def execute_tool_on_server(self, server_name: str, tool_name: str, arguments: dict[str, Any]) -> str:
+    async def execute_tool_on_server(
+        self, server_name: str, tool_name: str, arguments: dict[str, Any]
+    ) -> str:
         """
         Execute a tool on a specific MCP server.
 
@@ -307,13 +316,17 @@ class SimpleMCPClient:
             RuntimeError: If tool execution fails
         """
         if server_name not in self.clients:
-            raise ValueError(f"Not connected to server '{server_name}'. Connected servers: {list(self.connected_servers)}")
+            raise ValueError(
+                f"Not connected to server '{server_name}'. Connected servers: {list(self.connected_servers)}"
+            )
 
         # Validate tool exists on this server
         server_tools = self.tools_by_server.get(server_name, [])
         tool_names = [tool["name"] for tool in server_tools]
         if tool_name not in tool_names:
-            raise ValueError(f"Tool '{tool_name}' not found on server '{server_name}'. Available tools: {tool_names}")
+            raise ValueError(
+                f"Tool '{tool_name}' not found on server '{server_name}'. Available tools: {tool_names}"
+            )
 
         try:
             # Execute tool using FastMCP v2 API
@@ -345,12 +358,12 @@ class SimpleMCPClient:
         # Disconnect from all servers
         for server_name in list(self.connected_servers):
             await self._disconnect_from_server(server_name)
-        
+
         # Reset state
         self.clients.clear()
         self.tools_by_server.clear()
         self.connected_servers.clear()
-        
+
         # Reset backward compatibility properties
         self.client = None
         self.available_tools = []
