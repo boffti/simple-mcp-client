@@ -30,7 +30,7 @@ except ImportError:
 
 from config import LLMConfig, auto_detect_provider_from_env, load_llm_config, validate_llm_config
 from llm_providers import LLMProvider, create_llm_provider
-from mcp_client import QueryProcessor
+
 from simple_mcp_client import SimpleMCPClient
 
 
@@ -61,7 +61,7 @@ class InteractiveMCPCLI:
         )
 
         # Create query processor
-        self.query_processor: Optional[QueryProcessor] = None
+        self.query_processor: Optional[MultiServerQueryProcessor] = None
 
     async def connect_to_server(self, server_name: str | None = None) -> bool:
         """Connect to MCP server(s) and initialize query processor."""
@@ -87,7 +87,7 @@ class InteractiveMCPCLI:
                 print(f"\nTotal available tools: {len(all_tools)}")
 
             # Create query processor that works with multi-server SimpleMCPClient
-            from mcp_client import MultiServerQueryProcessor
+            from query_processing import MultiServerQueryProcessor
 
             self.query_processor = MultiServerQueryProcessor(
                 self.mcp_client,
