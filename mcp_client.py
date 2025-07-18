@@ -152,6 +152,19 @@ class QueryProcessor:
         self.llm_provider = llm_provider
         self.max_tokens = max_tokens
 
+    def _format_tool_input_for_display(self, tool_name: str, tool_input: dict) -> str:
+        """Format tool input for better display in CLI."""
+        if tool_name == "query" and "sql" in tool_input:
+            # Special formatting for SQL queries
+            sql = tool_input["sql"]
+            # Replace literal \n with actual newlines for better readability
+            formatted_sql = sql.replace("\\n", "\n")
+            # Create a nice format for SQL
+            return f'{{\n  "sql": """\n{formatted_sql}\n  """\n}}'
+        else:
+            # Standard JSON formatting for other tools
+            return json.dumps(tool_input, indent=2)
+
     async def process_query(self, user_query: str) -> str:
         """Process a user query, potentially using MCP tools."""
         if not self.mcp_client.client:
@@ -213,7 +226,7 @@ Always use the appropriate MCP tools when they can help fulfill the user's reque
             tool_id = tool_call["id"]
 
             print(f"\n🔧 Executing tool: {tool_name}")
-            print(f"📥 Tool input: {json.dumps(tool_input, indent=2)}")
+            print(f"📥 Tool input: {self._format_tool_input_for_display(tool_name, tool_input)}")
 
             # Execute tool via MCP server
             try:
@@ -288,3 +301,157 @@ Always use the appropriate MCP tools when they can help fulfill the user's reque
         else:
             # For OpenAI-compatible providers
             return f"Tool result: {result_text}"
+
+class MultiServerQueryProcessor:
+    """Enhanced QueryProcessor that works with SimpleMCPClient for multi-server support."""
+    
+    def __init__(self, simple_mcp_client, llm_provider, max_tokens: int = 1000, verbose: bool = False):
+        from simple_mcp_client import SimpleMCPClient
+        from llm_providers import BaseLLMProvider
+        
+        self.simple_mcp_client: SimpleMCPClient = simple_mcp_client
+        self.llm_provider: BaseLLMProvider = llm_provider
+        self.max_tokens = max_tokens
+        self.verbose = verbose
+        
+        # Set up logger
+        self.logger = logging.getLogger(__name__)
+        if verbose:
+            self.logger.setLevel(logging.DEBUG)
+    
+    def _format_tool_input_for_display(self, tool_name: str, tool_input: dict) -> str:
+        """Format tool input for better display in CLI."""
+        if tool_name == "query" and "sql" in tool_input:
+            # Special formatting for SQL queries
+            sql = tool_input["sql"]
+            # Replace literal \n with actual newlines for better readability
+            formatted_sql = sql.replace("\\n", "\n")
+            # Create a nice format for SQL
+            return f'{{\n  "sql": """\n{formatted_sql}\n  """\n}}'
+        else:
+            # Standard JSON formatting for other tools
+            return json.dumps(tool_input, indent=2)
+
+    async def process_query(self, user_query: str) -> str:
+        """Process a user query, potentially using MCP tools from multiple servers."""
+        if not self.simple_mcp_client.connected_servers:
+            raise RuntimeError("Not connected to any MCP servers")
+
+        # Prepare tools for the LLM provider
+        provider_tools = []
+        all_tools = self.simple_mcp_client.get_available_tools()
+        for tool in all_tools:
+            provider_tools.append(self.llm_provider.format_tool_for_provider(tool))
+
+        # Add system context about MCP
+        system_context = """You are an AI assistant with access to MCP (Model Context Protocol) tools.
+MCP allows you to use external tools and functions to help users. When users mention "MCP" or "using MCP",
+they're referring to these external tools you have access to. You should use the appropriate tools
+to fulfill their requests and explain what you're doing.
+
+Available MCP tools: {tools_list}
+
+Always use the appropriate MCP tools when they can help fulfill the user's request.""".format(
+            tools_list=", ".join(
+                [
+                    f"{tool['name']} ({tool['description']})"
+                    for tool in all_tools
+                ]
+            )
+        )
+
+        # Log the system context if verbose
+        if self.verbose:
+            self.logger.debug(f"System context: {system_context}")
+
+        # Initial request to LLM with system context
+        messages = [
+            LLMMessage(role="user", content=f"{system_context}\n\nUser query: {user_query}")
+        ]
+
+        # Log the request if verbose
+        if self.verbose:
+            self.logger.debug(
+                f"LLM Request:\nProvider: {self.llm_provider.__class__.__name__}\nModel: {self.llm_provider.model}\nMessages: {json.dumps([{'role': m.role, 'content': m.content} for m in messages], indent=2)}\nTools: {json.dumps(provider_tools, indent=2)}"
+            )
+
+        response = await self.llm_provider.create_message(
+            messages=messages,
+            tools=provider_tools if provider_tools else None,
+            max_tokens=self.max_tokens,
+        )
+
+        # Log the response if verbose
+        if self.verbose:
+            self.logger.debug(f"LLM Response: {response}")
+
+        # Handle response
+        final_text = response.text_content.copy()
+
+        for tool_call in response.tool_calls:
+            tool_name = tool_call["name"]
+            tool_input = tool_call["input"]
+            tool_id = tool_call["id"]
+
+            print(f"\n🔧 Executing tool: {tool_name}")
+            print(f"📥 Tool input: {self._format_tool_input_for_display(tool_name, tool_input)}")
+
+            # Execute tool via SimpleMCPClient (handles multi-server automatically)
+            try:
+                tool_result_text = await self.simple_mcp_client.execute_tool(tool_name, tool_input)
+                print(f"📤 Tool output: {tool_result_text}")
+
+                # Get final response from LLM with tool result
+                messages.append(
+                    LLMMessage(
+                        role="assistant",
+                        content=self._format_tool_use_message(tool_id, tool_name, tool_input),
+                    )
+                )
+                messages.append(
+                    LLMMessage(
+                        role="user",
+                        content=self._format_tool_result_message(tool_id, tool_result_text),
+                    )
+                )
+
+                if self.verbose:
+                    self.logger.debug(
+                        f"Final LLM Request: {json.dumps([{'role': m.role, 'content': m.content} for m in messages], indent=2)}"
+                    )
+
+                final_response = await self.llm_provider.create_message(
+                    messages=messages, max_tokens=self.max_tokens
+                )
+
+                if self.verbose:
+                    self.logger.debug(f"Final LLM Response: {final_response}")
+
+                final_text.extend(final_response.text_content)
+
+            except Exception as e:
+                print(f"❌ Tool execution error: {e}")
+                final_text.append(f"Error executing tool {tool_name}: {e}")
+
+        return "\n".join(final_text) if final_text else "No response generated."
+
+    def _format_tool_use_message(self, tool_id: str, tool_name: str, tool_input: dict) -> str:
+        """Format a tool use message for the LLM."""
+        return f"""I'll use the {tool_name} tool.
+
+<tool_use>
+<tool_id>{tool_id}</tool_id>
+<tool_name>{tool_name}</tool_name>
+<parameters>
+{json.dumps(tool_input, indent=2)}
+</parameters>
+</tool_use>"""
+
+    def _format_tool_result_message(self, tool_id: str, tool_result: str) -> str:
+        """Format a tool result message for the LLM."""
+        return f"""<tool_result>
+<tool_id>{tool_id}</tool_id>
+<result>
+{tool_result}
+</result>
+</tool_result>"""
